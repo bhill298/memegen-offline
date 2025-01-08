@@ -17,7 +17,9 @@ $(function () {
             let responses = response.match(/<a href=".*"/gm);
             for (let i = 0; i < responses.length; i++) {
                 let name = responses[i].match(/href="(.*)"/)[1];
-                addPhoto({name: name, width: 5000, height: 5000, "url": url + name});
+                // strip extension for the alt text
+                addPhoto({name: name.substring(0, name.lastIndexOf(".")) || name,
+                    width: 5000, height: 5000, "url": url + name});
             }
             var $grid = $('.grid').masonry({
                 itemSelector: '.grid-item',
