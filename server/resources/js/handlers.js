@@ -21,9 +21,8 @@ function loadFont(font) {
 function updateInputs() {
     var activeObject = canvas.getActiveObject();
 
-    if (activeObject.get('type') == "text") {
+    if (activeObject.get('type') == "textbox") {
         enableTextMethods();
-        $('#text').val(activeObject.text);
         $('#cp-text').colorpicker('setValue', activeObject.fill);
         $('#font-family').val(activeObject.fontFamily).selectpicker('refresh');
         $('#font-size').val(activeObject.fontSize);
@@ -49,9 +48,6 @@ function updateInputs() {
 
 function loadObjectHandlers() {
     // Interactive edit methods with canvas text
-    $('#text').off('input').on('input', function () {
-        setValue("text", $(this).val());
-    });
 
     $('#scale').off('input').on('input', function () {
         if (canvas.getActiveObject() != null) {

@@ -86,20 +86,9 @@
                         <label for="scale">Scale:</label>
                         <input type="range" class="form-control-range" id="scale" min="0.1" step="0.01">
                     </div>
-                    <div class="form-group">
-                        <label for="text">Text: </label>
-                        <div class="input-group cp" id="cp-text">
-                            <textarea class="form-control text-method" id="text" placeholder="Type your text here"
-                                rows="2"></textarea>
-                            <span class="input-group-append">
-                                <span class="input-group-text colorpicker-input-addon" id="text-color"
-                                    value="#ffffff"><i></i></span>
-                            </span>
-                        </div>
-                    </div>
                     <div class="form-group form-row mb-0">
-                        <div class="form-group col-7 col-sm-6 col-md-7 col-lg-5">
-                            <label for="font-size">Font Family: </label>
+                        <div class="form-group col-5 col-sm-6 col-md-5 col-lg-3">
+                            <label for="font-family">Font Family: </label>
                             <select class="form-control text-method" name="font-family" id="font-family">
                                 <optgroup label="English">
                                     <option value="Arial">Arial</option>
@@ -111,12 +100,8 @@
                                 </optgroup>
                             </select>
                         </div>
-                        <div class="form-group col-5 col-sm-6 col-md-5 col-lg-3">
-                            <label for="font-size">Font Size: </label>
-                            <input class="form-control text-method" type="number" value="150" id="font-size">
-                        </div>
                         <div class="form-group col-6 col-lg-4">
-                            <label for="font-size">Style: </label>
+                            <label for="font-style">Style: </label>
                             <div>
                                 <div class="input-group" id="font-style">
                                     <button class="btn btn-warning edit-btn mr-1 text-method" id="bold" value="bold"
@@ -129,7 +114,7 @@
                             </div>
                         </div>
                         <div class="form-group col-6 col-lg-auto">
-                            <label for="font-size">Text alignment: </label>
+                            <label for="align">Text alignment: </label>
                             <div>
                                 <div class="btn-group btn-group-toggle" data-toggle="buttons">
                                     <label class="btn btn-warning active align">
@@ -149,7 +134,7 @@
                             </div>
                         </div>
                         <div class="form-group col-4 col-sm-4 col-md-4 col-lg-3">
-                            <label for="font-size">Stroke: </label>
+                            <label for="stroke-width">Stroke: </label>
                             <div class="input-group cp cp-black" id="cp-stroke">
                                 <input class="form-control text-method" type="number" value="1" id="stroke-width"
                                     min="0" max="20" placeholder="0">
@@ -160,9 +145,9 @@
                             </div>
                         </div>
                         <div class="form-group col-4 col-sm-4 col-md-4 col-lg-3">
-                            <label for="font-size">Shadow: </label>
+                            <label for="shadow-depth">Shadow: </label>
                             <div class="input-group cp cp-black" id="cp-shadow">
-                                <input class="form-control text-method" type="number" value="5" id="shadow-depth"
+                                <input class="form-control text-method" type="number" value="0" id="shadow-depth"
                                     min="0" max="20" placeholder="0">
                                 <span class="input-group-append">
                                     <span class="input-group-text colorpicker-input-addon" id="shadow-color"
@@ -171,7 +156,7 @@
                             </div>
                         </div>
                         <div class="form-group col-auto col-sm-auto col-md-auto col-lg-auto">
-                            <label for="font-size">BG Color: </label>
+                            <label for="bg-color">BG Color: </label>
                             <div class="input-group cp cp-black" id="cp-background">
                                 <button class="btn btn-warning edit-btn text-method" id="bg-option" value="" data><i
                                         class="fas fa-fill-drip"></i></button>
@@ -179,6 +164,13 @@
                                     <span class="input-group-text colorpicker-input-addon" id="bg-color"
                                         value="#000000"><i></i></span>
                                 </span>
+                            </div>
+                        </div>
+                        <div class="form-group col-5 col-sm-6 col-md-5 col-lg-3">
+                            <label for="text-color">Text Color: </label>
+                            <div class="input-group cp" style="height: 38px;" id="cp-text">
+                                <span class="input-group-text colorpicker-input-addon" id="text-color"
+                                    value="#ffffff"><i></i></span>
                             </div>
                         </div>
                     </div>
