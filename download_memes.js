@@ -40,7 +40,7 @@ async function the_thing(arguments) {
             let title = el.getElementsByClassName("mt-title")[0].getElementsByTagName("a")[0].textContent;
             let template_url = el.getElementsByClassName("mt-img-wrap")[0].getElementsByTagName("a")[0].href.replace("/meme/", "/memetemplate/");
             // ignore gifs
-            if (!template_url.toLowerCase().includes("/gif")) {
+            if (!el.getElementsByClassName("mt-caption")[0].href.toLowerCase().includes("/gif")) {
                 data.push([title, template_url]);
             }
             i++;
