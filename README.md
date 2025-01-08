@@ -10,6 +10,10 @@ Place images in `server/img/memes/` (delete placeholder image first).
 sudo apt install python3-twisted
 python3 -m twisted web --listen tcp:8000 --path=./server
 ```
+Alternatively, install with pip:
+```
+python3 -m pip install Twisted service-identity
+```
 This will work by default, but the js is written in a way that expects a query
 of the image directory to return a list of image files like an ftp server.
 Alternatively, you can use a php script to query the images from the server
