@@ -82,6 +82,18 @@ function reflowGrid() {
     });
 }
 
+var __searchTimeout = null;
+function scheduleMemeSearch(searchBoxContents, timeout=300) {
+    // timeout in ms
+    if (__searchTimeout !== null) {
+        clearTimeout(__searchTimeout);
+    }
+    __searchTimeout = setTimeout(function() {
+        __searchTimeout = null;
+        doMemeSearch(searchBoxContents);
+    }, timeout);
+}
+
 var __lastMemeSearchTerm = "";
 function doMemeSearch(searchBoxContents) {
     searchBoxContents = searchBoxContents.trim();

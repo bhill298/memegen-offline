@@ -165,8 +165,8 @@ $('.align').on('update-status', function () {
  * Search Handlers *
 ********************/
 $("input[type=radio][name=meme-search-options]").change(function() {
-    doMemeSearch($("#meme-search").val());
+    scheduleMemeSearch($("#meme-search").val());
 });
 document.getElementById("meme-search").addEventListener("input", (e) => {
-    doMemeSearch(e.target.value);
+    scheduleMemeSearch(e.target.value);
 });
