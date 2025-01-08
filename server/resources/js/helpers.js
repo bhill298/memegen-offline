@@ -173,3 +173,7 @@ function setDropdown(val) {
     let $sel = $("#page-dropdown");
     $sel.selectpicker("val", val);
 }
+
+function canvasVisisble() {
+    return document.getElementById("meme-canvas-wrapper").offsetParent !== null;
+}

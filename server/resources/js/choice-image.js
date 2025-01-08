@@ -46,13 +46,23 @@ $(function () {
         reader.readAsDataURL(file);
     });
 
+    function tryProcessMeme(imgInfo) {
+        if (canvasVisisble()) {
+            processMeme(imgInfo);
+            handlingClick = false;
+        }
+        else {
+            setTimeout(tryProcessMeme, 50, imgInfo);
+        }
+    }
+
     // Event: Choice was made
     $('.choice-section').on('choice-done', function (e, imgInfo) {
         $('.choice-section').fadeOut('normal', function () {
             $('.edit-section').removeClass('d-none').hide().fadeIn();
             $('.fabric-canvas-wrapper').append(`<canvas id="meme-canvas"></canvas>`);
-            processMeme(imgInfo);
-            handlingClick = false;
+            // don't think wrapper to perform this check is necessary
+            tryProcessMeme(imgInfo);
         });
     });
 
