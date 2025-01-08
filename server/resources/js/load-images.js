@@ -20,7 +20,9 @@ $(function () {
                 let name = responses[i].match(/href="(.*)"/)[1];
                 imgNames.push(name);
             }
-            imgNames.sort();
+            // numeric sort
+            let collator = new Intl.Collator(undefined, {numeric: true, sensitivity: 'base'});
+            imgNames.sort(collator.compare);
             for (let i = 0; i < imgNames.length; i++) {
                 let name = imgNames[i];
                 // strip extension for the alt text
