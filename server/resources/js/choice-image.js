@@ -1,5 +1,6 @@
 $(function () {
-    // Eevnt: Choice meme from top 100
+    let handlingClick = false;
+    // Event: Choice meme from top 100
     $('.memes-container').delegate('img', 'click', function () {
         var $img = $(this)
         var imgInfo = {
@@ -7,7 +8,11 @@ $(function () {
             height: $img.attr('img-height'),
             width: $img.attr('img-width'),
         }
-
+        // need to wait for image to load / don't fire an event while another one is being handled
+        if (parseInt(imgInfo.width) === -1 || handlingClick) {
+            return;
+        }
+        handlingClick = true;
         $('.choice-section').trigger('choice-done', imgInfo)
     })
 
@@ -44,18 +49,21 @@ $(function () {
     // Event: Choice was made
     $('.choice-section').on('choice-done', function (e, imgInfo) {
         $('.choice-section').fadeOut('normal', function () {
-            $('.edit-section').removeClass('d-none').hide().fadeIn()
-            $('.fabric-canvas-wrapper').append(`<canvas id="meme-canvas"></canvas>`)
-            processMeme(imgInfo)
+            $('.edit-section').removeClass('d-none').hide().fadeIn();
+            $('.fabric-canvas-wrapper').append(`<canvas id="meme-canvas"></canvas>`);
+            processMeme(imgInfo);
+            handlingClick = false;
         })
     })
 
     // Event: Back button click
     $('.back-btn .btn').on('click', function () {
         $('.edit-section').fadeOut('normal', function () {
-            $('.canvas-container').remove()
-            $('.choice-section').fadeIn()
-            enableTextMethods()
+            $('.canvas-container').remove();
+            $('.choice-section').fadeIn();
+            enableTextMethods();
+            // force the grid to reflow to push things after the grid to the bottom
+            $('.grid').masonry('layout');
         })
     })
 })

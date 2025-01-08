@@ -75,15 +75,23 @@ function showAlert(message) {
 }
 
 function reflowGrid() {
-    return $('.grid').masonry({
+    let $grid = $('.grid').masonry({
         itemSelector: '.grid-item',
         percentPosition: true,
-        columnWidth: '.grid-sizer'
+        columnWidth: '.grid-sizer',
+        transitionDuration: 0
     });
+    $grid.imagesLoaded().progress(function (instance, image) {
+        $grid.masonry('layout');
+        let img = image.img;
+        img.setAttribute("img-height", img.naturalHeight)
+        img.setAttribute("img-width", img.naturalWidth)
+    });
+    return $grid;
 }
 
 var __searchTimeout = null;
-function scheduleMemeSearch(searchBoxContents, timeout=350) {
+function scheduleMemeSearch(searchBoxContents, timeout=500) {
     // timeout in ms
     if (__searchTimeout !== null) {
         clearTimeout(__searchTimeout);
@@ -106,18 +114,22 @@ function doMemeSearch(searchBoxContents) {
     }
     __lastAndSelected = andSelected;
     __lastMemeSearchTerm = searchBoxContents;
-    let sel = $(".memes-container img");
     if (searchBoxContents.length === 0) {
-        // show everything when clearing the box
-        sel.show();
+        // reset
+        loadPhotos(getCurrentMemeRange()[0]);
     }
     else {
-        sel.hide();
+        let names = [];
         let terms = searchBoxContents.toLowerCase().split(" ");
-        sel.filter(function() {
+        let memeStride = getMemeStride();
+        for (name of getImages()) {
+            if (names.length >= memeStride) {
+                break;
+            }
+            let match = true;
             for (const term of terms) {
                 // filter the image string to search on
-                let imgStr = $(this).attr("alt").toLowerCase();
+                let imgStr = name.toLowerCase();
                 // if it starts with a number (used for sorting), ignore it in the search
                 let index = imgStr.indexOf("-");
                 if (index !== -1 && !isNaN(imgStr.substr(0, index))) {
@@ -125,15 +137,39 @@ function doMemeSearch(searchBoxContents) {
                 }
                 if (term.length > 0 && imgStr.includes(term)) {
                     if (!andSelected) {
-                        return true;
+                        names.push(name);
+                        break;
                     }
                 }
                 else if (andSelected) {
-                    return false;
+                    match = false;
+                    break;
                 }
             }
-            return andSelected;
-        }).show();
+            if (andSelected && match) {
+                names.push(name);
+            }
+        }
+        updatePhotosFromNames(names);
     }
-    reflowGrid();
+}
+
+function initDropdown(num, callback) {
+    let $sel = $("#page-dropdown");
+    $sel.empty();
+    for (let i = 0; i < num; i++) {
+        let el = $("<option></option>").val(i).html(i);
+        $sel.append(el);
+    }
+    $sel.selectpicker("refresh");
+    $sel.selectpicker("val", 0);
+    $sel.change(function() {
+        callback($(this).val());
+    });
+    return $sel;
+}
+
+function setDropdown(val) {
+    let $sel = $("#page-dropdown");
+    $sel.selectpicker("val", val);
 }

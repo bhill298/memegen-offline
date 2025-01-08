@@ -60,6 +60,13 @@
             <div class="grid memes-container">
                 <div class="grid-sizer"></div>
             </div>
+            <div hidden id="prev-next-buttons" class="choice text-center mr-auto ml-auto mt-4 mb-2">
+                <button type="button" class="btn btn-primary" id="prev-meme-page">Prev</button>
+                <button type="button" class="btn btn-primary" id="next-meme-page">Next</button>
+                <select id='page-dropdown'>
+                    <option value="placeholder" selected>placeholder</option>
+                </select>
+            </div>
         </div>
     </div>
 
@@ -101,10 +108,6 @@
                                     <option value="Impact">Impact</option>
                                     <option value="Times New Roman">Times New Roman</option>
                                     <option value="Trebuchet MS">Trebuchet MS</option>
-                                </optgroup>
-                                <optgroup label="Arabic">
-                                    <option value="Bahij Myriad Arabic Bold">Bahij Myriad Arabic</option>
-                                    <option value="Hacen Liner XXL">Hacen Liner XXL</option>
                                 </optgroup>
                             </select>
                         </div>
@@ -205,7 +208,7 @@
 
     <script id="meme-template" type="x-tmpl-mustache">
         <div class="grid-item">
-            <img src="{{url}}" crossorigin alt="{{name}}" img-height="{{height}}" img-width="{{width}}"/>
+            <img src="{{url}}" crossorigin title="{{name}}" alt="{{name}}" img-height="{{height}}" img-width="{{width}}"/>
         </div>
     </script>
 
@@ -224,9 +227,9 @@
 
     <script src="vendors/fontfaceobserver/fontfaceobserver.standalone.js"></script>
 
-    <script src="resources/js/initialization.js"></script>
     <script src="resources/js/helpers.js"></script>
     <script src="resources/js/load-images.js"></script>
+    <script src="resources/js/initialization.js"></script>
     <script src="resources/js/choice-image.js"></script>
     <script src="resources/js/handlers.js"></script>
     <script src="resources/js/main.js"></script>

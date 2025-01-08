@@ -155,6 +155,10 @@ canvas {
     outline: 0px auto -webkit-focus-ring-color!important;
 }
 
+.dropdown {
+    width: 100px !important;
+}
+
 #bg-option {
     border-bottom-right-radius: 0;
     border-top-right-radius: 0;
