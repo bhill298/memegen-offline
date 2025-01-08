@@ -1,6 +1,6 @@
 // Handle custom fonts
 function loadFont(font) {
-    const customFonts = ['Arial Black', 'Comic Sans Ms', 'Impact', 'Trebuchet MS', 'Bahij Myriad Arabic Bold', 'Hacen Liner XXL']
+    const customFonts = ['Arial Black', 'Comic Sans Ms', 'Impact', 'Trebuchet MS']
     var text = canvas.getActiveObject()
     if (customFonts.includes(font)) {
         var myfont = new FontFaceObserver(font)
@@ -165,8 +165,22 @@ $('.align').on('update-status', function () {
  * Search Handlers *
 ********************/
 $("input[type=radio][name=meme-search-options]").change(function() {
-    scheduleMemeSearch($("#meme-search").val());
+    scheduleMemeSearch($("#meme-search").val(), 0);
 });
 document.getElementById("meme-search").addEventListener("input", (e) => {
-    scheduleMemeSearch(e.target.value);
+    scheduleMemeSearch(e.target.value, 0);
+});
+
+/*********************
+ * Prev Next Buttons *
+**********************/
+document.getElementById("prev-meme-page").addEventListener("click", function() {
+    let start = getCurrentMemeRange()[0] - getMemeStride();
+    loadPhotos(start);
+    setDropdown(Math.floor(start / getMemeStride()));
+});
+document.getElementById("next-meme-page").addEventListener("click", function() {
+    let start = getCurrentMemeRange()[0] + getMemeStride()
+    loadPhotos(start);
+    setDropdown(Math.floor(start / getMemeStride()));
 });

@@ -13,3 +13,5 @@ $('.cp-black').colorpicker({
 $('select').selectpicker({
     style: 'new-select',
 })
+
+loadPhotos(0);

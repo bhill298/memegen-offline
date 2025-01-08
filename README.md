@@ -8,7 +8,7 @@ This fork adds search, scripts for mass downloading images, and is designed for 
 Place images in `server/img/memes/`.
 ```
 sudo apt install python3-twisted
-cd server && python3 -m twisted web --listen tcp:8000 --path=.
+python3 -m twisted web --listen tcp:8000 --path=./server
 ```
 
 ## Downloading images

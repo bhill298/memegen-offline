@@ -33,16 +33,3 @@
     src:url("../fonts/impact.ttf") format("truetype");
 }
 
-@font-face {
-    font-family:"Bahij Myriad Arabic Bold";
-    font-style: normal;
-    font-weight: normal;
-    src:url("../fonts/Bahij-Myriad-Arabic-Bold.ttf") format("truetype");
-}
-@font-face {
-    font-family:"Hacen Liner XXL";
-    font-style: normal;
-    font-weight: normal;
-    src:url("../fonts/Hacen-Liner-XXL.ttf") format("truetype");
-}
-
