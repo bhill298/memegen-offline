@@ -23,8 +23,7 @@ function processMeme(memeInfo) {
         // delete selected element
         if (e.keyCode == 46 ||
             e.key == 'Delete' ||
-            e.code == 'Delete' ||
-            e.key == 'Backspace')
+            e.code == 'Delete')
         {
             let obj = canvas.getActiveObject();
             if (obj && !obj.isEditing) {
@@ -48,19 +47,15 @@ function processMeme(memeInfo) {
 
     // Event: Add new text
     $('#add-text').off('click').on('click', function () {
-        if ($('#text').val() == '') {
-            showAlert('Error! Text field is empty');
-            return;
-        }
+        let textContent = 'text';
 
         // Create new text object
-        // TODO: to make editable, can use Textbox (same properties)
-        var text = new fabric.Text($('#text').val(), {
+        var text = new fabric.Textbox(textContent, {
             top: 10,
             left: 10,
+            scaleX: .1,
             fontFamily: $('#font-family').find(":selected").attr('value'),
             textAlign: $('input[name="align"]:checked').val(),
-            fontSize: $('#font-size').val(),
             fill: $('#cp-text').colorpicker('getValue'),
             fontStyle: $('#italic').attr('data'),
             fontWeight: $('#bold').attr('data'),
@@ -69,7 +64,7 @@ function processMeme(memeInfo) {
             strokeWidth: $('#stroke-width').val(),
             shadow: createShadow($('#cp-shadow').colorpicker('getValue'), $('#shadow-depth').val()),
             textBackgroundColor: getBackgroundColor($('#cp-background').colorpicker('getValue')),
-            opacity: parseFloat($('#opacity').val() / 100),
+            opacity: parseFloat($('#opacity').val() / 100)
         });
 
         text.scaleToWidth(canvas.width / 2);
