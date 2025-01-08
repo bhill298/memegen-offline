@@ -81,3 +81,25 @@ function reflowGrid() {
         columnWidth: '.grid-sizer'
     });
 }
+
+function doMemeSearch(searchBoxContents) {
+    // otherwise OR
+    let andSelected = document.getElementById("meme-search-option-and").checked;
+    let sel = $(".memes-container img");
+    sel.hide();
+    let terms = searchBoxContents.toLowerCase().split(" ");
+    sel.filter(function() {
+        for (const term of terms) {
+            if (term.length > 0 && $(this).attr("alt").toLowerCase().includes(term)) {
+                if (!andSelected) {
+                    return true;
+                }
+            }
+            else if (andSelected) {
+                return false;
+            }
+        }
+        return andSelected;
+    }).show();
+    reflowGrid();
+}
