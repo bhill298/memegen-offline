@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import argparse
 import base64
 import os
@@ -59,8 +60,9 @@ def filter_chars(s):
 def words_to_filename(words, extension, maxlen):
     # return filename from words list e.g. name-of-meme-and-all-unique-words-in-also-called.jpg ; truncate to 200 chars including ext
     MAX_NAME = maxlen - len(extension)
-    out_words = [gen_prefix()]
-    current_len = 0
+    prefix = gen_prefix()
+    out_words = [prefix]
+    current_len = len(prefix)
     for word in words:
         # include dash that would be added (except to first word)
         current_len += (len(word) + (0 if len(out_words) == 0 else 1))
@@ -114,12 +116,12 @@ wait = WebDriverWait(driver, 10)
 next_url = "https://imgflip.com/memetemplates?sort=top-all-time"
 memes = []
 while next_url is not None:
-    time.sleep(args.sleep)
-    driver.get(next_url)
-    wait.until(expected_conditions.visibility_of_element_located((By.ID, "mt-boxes-wrap")))
     count = args.num - len(memes) if args.num else None
     if count is not None and count <= 0:
         break
+    time.sleep(args.sleep)
+    driver.get(next_url)
+    wait.until(expected_conditions.visibility_of_element_located((By.ID, "mt-boxes-wrap")))
     print(f"Parsing memes from url {next_url}")
     res = execute_script(driver, script_contents, [1, count], 60)
     next_url = res[0]
@@ -133,6 +135,7 @@ while next_url is not None:
 for meme in memes:
     words, template_url = meme
     time.sleep(args.sleep)
+    print(f"getting {template_url}")
     driver.get(template_url)
     wait.until(expected_conditions.visibility_of_element_located((By.ID, "mtm-img")))
     print(f"downloading img {template_url}")

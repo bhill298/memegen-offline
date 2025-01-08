@@ -19,7 +19,7 @@ document.getElementById("meme-search").addEventListener("input", (e) => {
     sel.hide();
     sel.filter(function() {
         for (const term of e.target.value.toLowerCase().split(" ")) {
-            if ($(this).attr("alt").toLowerCase().includes(term)) {
+            if (term.length > 0 && $(this).attr("alt").toLowerCase().includes(term)) {
                 return true;
             }
         }
