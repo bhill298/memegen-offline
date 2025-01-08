@@ -132,13 +132,12 @@ while next_url is not None:
         for word in title.split(" "):
             words[filter_chars(word)] = ""
         memes.append([words, template_url])
-for meme in memes:
+for (idx, meme) in enumerate(memes):
     words, template_url = meme
     time.sleep(args.sleep)
-    print(f"getting {template_url}")
     driver.get(template_url)
     wait.until(expected_conditions.visibility_of_element_located((By.ID, "mtm-img")))
-    print(f"downloading img {template_url}")
+    print(f"downloading img {template_url} ({idx+1} / {len(memes)})")
     res = execute_script(driver, script_contents, [2], 60)
     b64, new_words, ext = res
     for word in new_words:
