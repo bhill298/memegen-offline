@@ -2,11 +2,11 @@ var canvas;
 // Meme process
 function processMeme(memeInfo) {
     // Responsive canvas
-    $(window).resize(resizeCanvas)
+    $(window).resize(resizeCanvas);
     function resizeCanvas() {
-        var width = $('.fabric-canvas-wrapper').width()
-        $('.canvas-container').css('width', width)
-        $('.canvas-container').css('height', width * memeInfo.height / memeInfo.width)
+        var width = $('.fabric-canvas-wrapper').width();
+        $('.canvas-container').css('width', width);
+        $('.canvas-container').css('height', width * memeInfo.height / memeInfo.width);
     }
 
     // Intialize fabric canvas
@@ -18,14 +18,14 @@ function processMeme(memeInfo) {
     });
 
     // Scale is a range input allow small screen users to scale the object easily
-    $('#scale').attr('max', canvas.width * 0.0025)
-    $('#scale').val(canvas.width * 0.0025 / 2)
+    $('#scale').attr('max', canvas.width * 0.0025);
+    $('#scale').val(canvas.width * 0.0025 / 2);
 
-    resizeCanvas()
+    resizeCanvas();
 
     // Add meme template as canvas background
     fabric.Image.fromURL(`${memeInfo.url}`, function (meme) {
-        canvas.setBackgroundImage(meme, canvas.renderAll.bind(canvas))
+        canvas.setBackgroundImage(meme, canvas.renderAll.bind(canvas));
     }, {
         crossOrigin: "anonymous"
     });
@@ -33,10 +33,10 @@ function processMeme(memeInfo) {
     // Event: Add new text
     $('#add-text').off('click').on('click', function () {
         if ($('#text').val() == '') {
-            showAlert('Error! Text field is empty')
-            return
+            showAlert('Error! Text field is empty');
+            return;
         }
-        
+
         // Create new text object
         var text = new fabric.Text($('#text').val(), {
             top: 10,
@@ -53,42 +53,42 @@ function processMeme(memeInfo) {
             shadow: createShadow($('#cp-shadow').colorpicker('getValue'), $('#shadow-depth').val()),
             textBackgroundColor: getBackgroundColor($('#cp-background').colorpicker('getValue')),
             opacity: parseFloat($('#opacity').val() / 100),
-        })
-        
-        text.scaleToWidth(canvas.width / 2)
-        $('#scale').val(text.scaleX)
+        });
+
+        text.scaleToWidth(canvas.width / 2);
+        $('#scale').val(text.scaleX);
 
         canvas.add(text).setActiveObject(text);
-        loadFont(text.fontFamily)
-    })
+        loadFont(text.fontFamily);
+    });
 
     // Event: Add new image
     $('#add-image').off('input').on('input', function () {
         const file = this.files[0];
         const fileType = file['type'];
-        $('#add-image').val('')
+        $('#add-image').val('');
 
         if (!isImage(fileType)) {
-            showAlert('Error! Invalid Image')
-            return
+            showAlert('Error! Invalid Image');
+            return;
         }
 
-        const reader = new FileReader()
+        const reader = new FileReader();
         reader.onload = function () {
-            var image = new Image()
-            image.src = reader.result
+            var image = new Image();
+            image.src = reader.result;
             image.onload = function () {
                 fabric.Image.fromURL(reader.result, function (image) {
-                    image.scaleToWidth(canvas.width / 2)
+                    image.scaleToWidth(canvas.width / 2);
                     canvas.add(image).setActiveObject(image);
-                    $('#scale').val(image.scaleX)
+                    $('#scale').val(image.scaleX);
                 }, {
                     opacity: $('#opacity').val()
-                })
+                });
             }
         }
-        reader.readAsDataURL(file)
-    })
+        reader.readAsDataURL(file);
+    });
 
     // Custom control
     fabric.Object.prototype.set({
@@ -102,14 +102,14 @@ function processMeme(memeInfo) {
     });
 
     // add event listener handlers to edit methods
-    loadObjectHandlers()
+    loadObjectHandlers();
 
     // Update edit methods values to the selected canvas text
     canvas.on({
         'selection:created': updateInputs,
         'selection:updated': updateInputs,
         'selection:cleared': enableTextMethods,
-    })
+    });
 
     $('#generate-meme').off('click').on('click', function () {
         var dataURL = canvas.toDataURL({
@@ -122,5 +122,5 @@ function processMeme(memeInfo) {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-    })
+    });
 }

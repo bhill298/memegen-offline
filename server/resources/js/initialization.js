@@ -7,11 +7,11 @@ $('#cp-text').colorpicker({
 $('.cp-black').colorpicker({
     fallbackColor: '#000000',
     input: '',
-})
+});
 
 // Intialize font-family select
 $('select').selectpicker({
     style: 'new-select',
-})
+});
 
 loadPhotos(0);
