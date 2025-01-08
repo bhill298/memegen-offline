@@ -15,8 +15,14 @@ $(function () {
         success: function (response) {
             // scan for any links on the rendered html page (this will get any files, not just images)
             let responses = response.match(/<a href=".*"/gm);
+            let imgNames = [];
             for (let i = 0; i < responses.length; i++) {
                 let name = responses[i].match(/href="(.*)"/)[1];
+                imgNames.push(name);
+            }
+            imgNames.sort();
+            for (let i = 0; i < imgNames.length; i++) {
+                let name = imgNames[i];
                 // strip extension for the alt text
                 addPhoto({name: name.substring(0, name.lastIndexOf(".")) || name,
                     width: 5000, height: 5000, "url": url + name});

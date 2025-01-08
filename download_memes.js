@@ -39,7 +39,10 @@ async function the_thing(arguments) {
             let el = els[i];
             let title = el.getElementsByClassName("mt-title")[0].getElementsByTagName("a")[0].textContent;
             let template_url = el.getElementsByClassName("mt-img-wrap")[0].getElementsByTagName("a")[0].href.replace("/meme/", "/memetemplate/");
-            data.push([title, template_url]);
+            // ignore gifs
+            if (!template_url.toLowerCase().includes("/gif")) {
+                data.push([title, template_url]);
+            }
             i++;
         }
     }
