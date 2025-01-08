@@ -13,17 +13,3 @@ $('.cp-black').colorpicker({
 $('select').selectpicker({
     style: 'new-select',
 })
-
-document.getElementById("meme-search").addEventListener("input", (e) => {
-    let sel = $(".memes-container img");
-    sel.hide();
-    sel.filter(function() {
-        for (const term of e.target.value.toLowerCase().split(" ")) {
-            if (term.length > 0 && $(this).attr("alt").toLowerCase().includes(term)) {
-                return true;
-            }
-        }
-        return false;
-    }).show();
-    reflowGrid();
-});
