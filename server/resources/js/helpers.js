@@ -83,7 +83,7 @@ function reflowGrid() {
 }
 
 var __searchTimeout = null;
-function scheduleMemeSearch(searchBoxContents, timeout=300) {
+function scheduleMemeSearch(searchBoxContents, timeout=350) {
     // timeout in ms
     if (__searchTimeout !== null) {
         clearTimeout(__searchTimeout);
@@ -95,12 +95,16 @@ function scheduleMemeSearch(searchBoxContents, timeout=300) {
 }
 
 var __lastMemeSearchTerm = "";
+var __lastAndSelected = document.getElementById("meme-search-option-and").checked;
 function doMemeSearch(searchBoxContents) {
     searchBoxContents = searchBoxContents.trim();
-    if (searchBoxContents === __lastMemeSearchTerm) {
+    // otherwise OR
+    let andSelected = document.getElementById("meme-search-option-and").checked;
+    if (searchBoxContents === __lastMemeSearchTerm && andSelected === __lastAndSelected) {
         // no need to do anything
         return;
     }
+    __lastAndSelected = andSelected;
     __lastMemeSearchTerm = searchBoxContents;
     let sel = $(".memes-container img");
     if (searchBoxContents.length === 0) {
@@ -108,8 +112,6 @@ function doMemeSearch(searchBoxContents) {
         sel.show();
     }
     else {
-        // otherwise OR
-        let andSelected = document.getElementById("meme-search-option-and").checked;
         sel.hide();
         let terms = searchBoxContents.toLowerCase().split(" ");
         sel.filter(function() {
