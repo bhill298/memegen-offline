@@ -5,7 +5,7 @@ Meme it is a simple meme generator built using HTML5 Canvas library Fabric.Js, a
 This fork adds search, scripts for mass downloading images, and is designed for offline use unlike the upstream repo. The search is rudimentary and works by searching each word individually (space-separated) in the search box on the image filenames.
 
 ## Simple setup (Ubuntu)
-Place images in `server/img/memes/`.
+Place images in `server/img/memes/` (delete placeholder image first).
 ```
 sudo apt install python3-twisted
 python3 -m twisted web --listen tcp:8000 --path=./server
