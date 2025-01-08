@@ -59,7 +59,6 @@ function processMeme(memeInfo) {
         var text = new fabric.Textbox(textContent, {
             top: 10,
             left: 10,
-            scaleX: .1,
             fontFamily: $('#font-family').find(":selected").attr('value'),
             textAlign: $('input[name="align"]:checked').val(),
             fill: $('#cp-text').colorpicker('getValue'),
@@ -73,7 +72,7 @@ function processMeme(memeInfo) {
             opacity: parseFloat($('#opacity').val() / 100)
         });
 
-        text.scaleToWidth(canvas.width / 2);
+        text.scaleToWidth(canvas.width / 5);
         $('#scale').val(text.scaleX);
 
         canvas.add(text).setActiveObject(text);
