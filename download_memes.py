@@ -42,15 +42,11 @@ def chromedriver_install_to_path(path=None):
 
 
 def gen_prefix():
-    # return a prefix in ascending sort order: a..z za..zz zza..zzz
-    first_letter = 'a'
-    last_letter = 'z'
-    if len(gen_prefix.CUR_PREFIX) == 0 or gen_prefix.CUR_PREFIX[-1] == last_letter:
-        gen_prefix.CUR_PREFIX.append(first_letter)
-    else:
-        gen_prefix.CUR_PREFIX[-1] = chr(ord(gen_prefix.CUR_PREFIX[-1]) + 1)
-    return ''.join(gen_prefix.CUR_PREFIX)
-gen_prefix.CUR_PREFIX = []
+    # return a prefix in ascending sort order
+    n = str(gen_prefix.CUR_PREFIX)
+    gen_prefix.CUR_PREFIX += 1
+    return n
+gen_prefix.CUR_PREFIX = 0
 
 
 def filter_chars(s):
@@ -137,7 +133,7 @@ for (idx, meme) in enumerate(memes):
     time.sleep(args.sleep)
     driver.get(template_url)
     wait.until(expected_conditions.visibility_of_element_located((By.ID, "mtm-img")))
-    print(f"downloading img {template_url} ({idx+1} / {len(memes)})")
+    print(f"({idx+1} / {len(memes)}) downloading img {template_url}")
     res = execute_script(driver, script_contents, [2], 60)
     b64, new_words, ext = res
     for word in new_words:
