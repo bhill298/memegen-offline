@@ -102,7 +102,14 @@ function doMemeSearch(searchBoxContents) {
         let terms = searchBoxContents.toLowerCase().split(" ");
         sel.filter(function() {
             for (const term of terms) {
-                if (term.length > 0 && $(this).attr("alt").toLowerCase().includes(term)) {
+                // filter the image string to search on
+                let imgStr = $(this).attr("alt").toLowerCase();
+                // if it starts with a number (used for sorting), ignore it in the search
+                let index = imgStr.indexOf("-");
+                if (index !== -1 && !isNaN(imgStr.substr(0, index))) {
+                    imgStr = imgStr.substr(index + 1);
+                }
+                if (term.length > 0 && imgStr.includes(term)) {
                     if (!andSelected) {
                         return true;
                     }
