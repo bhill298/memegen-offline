@@ -82,24 +82,37 @@ function reflowGrid() {
     });
 }
 
+var __lastMemeSearchTerm = "";
 function doMemeSearch(searchBoxContents) {
-    // otherwise OR
-    let andSelected = document.getElementById("meme-search-option-and").checked;
+    searchBoxContents = searchBoxContents.trim();
+    if (searchBoxContents === __lastMemeSearchTerm) {
+        // no need to do anything
+        return;
+    }
+    __lastMemeSearchTerm = searchBoxContents;
     let sel = $(".memes-container img");
-    sel.hide();
-    let terms = searchBoxContents.toLowerCase().split(" ");
-    sel.filter(function() {
-        for (const term of terms) {
-            if (term.length > 0 && $(this).attr("alt").toLowerCase().includes(term)) {
-                if (!andSelected) {
-                    return true;
+    if (searchBoxContents.length === 0) {
+        // show everything when clearing the box
+        sel.show();
+    }
+    else {
+        // otherwise OR
+        let andSelected = document.getElementById("meme-search-option-and").checked;
+        sel.hide();
+        let terms = searchBoxContents.toLowerCase().split(" ");
+        sel.filter(function() {
+            for (const term of terms) {
+                if (term.length > 0 && $(this).attr("alt").toLowerCase().includes(term)) {
+                    if (!andSelected) {
+                        return true;
+                    }
+                }
+                else if (andSelected) {
+                    return false;
                 }
             }
-            else if (andSelected) {
-                return false;
-            }
-        }
-        return andSelected;
-    }).show();
+            return andSelected;
+        }).show();
+    }
     reflowGrid();
 }
