@@ -1,4 +1,5 @@
 var canvas;
+
 // Meme process
 function processMeme(memeInfo) {
     // Responsive canvas
@@ -15,6 +16,21 @@ function processMeme(memeInfo) {
         height: memeInfo.height,
         selection: false,
         allowTouchScrolling: true
+    });
+    // we select the wrapper because it'll be present on document load
+    // divs also need a tab index to be focusable
+    $('#meme-canvas-wrapper').keyup(function (e) {
+        // delete selected element
+        if (e.keyCode == 46 ||
+            e.key == 'Delete' ||
+            e.code == 'Delete' ||
+            e.key == 'Backspace')
+        {
+            let obj = canvas.getActiveObject();
+            if (obj && !obj.isEditing) {
+                canvas.remove(obj);
+            }
+        }
     });
 
     // Scale is a range input allow small screen users to scale the object easily
@@ -38,6 +54,7 @@ function processMeme(memeInfo) {
         }
 
         // Create new text object
+        // TODO: to make editable, can use Textbox (same properties)
         var text = new fabric.Text($('#text').val(), {
             top: 10,
             left: 10,
