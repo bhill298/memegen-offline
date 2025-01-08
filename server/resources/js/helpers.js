@@ -73,3 +73,11 @@ function showAlert(message) {
             }, 3000)
         })
 }
+
+function reflowGrid() {
+    return $('.grid').masonry({
+        itemSelector: '.grid-item',
+        percentPosition: true,
+        columnWidth: '.grid-sizer'
+    });
+}

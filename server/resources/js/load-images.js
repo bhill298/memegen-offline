@@ -21,14 +21,9 @@ $(function () {
                 addPhoto({name: name.substring(0, name.lastIndexOf(".")) || name,
                     width: 5000, height: 5000, "url": url + name});
             }
-            var $grid = $('.grid').masonry({
-                itemSelector: '.grid-item',
-                percentPosition: true,
-                columnWidth: '.grid-sizer'
-            });
+            var $grid = reflowGrid();
             $grid.imagesLoaded().progress(function (instance, image) {
                 $grid.masonry('layout');
-                //naturalWidth, naturalHeight
                 let img = image.img;
                 img.setAttribute("img-height", img.naturalHeight)
                 img.setAttribute("img-width", img.naturalWidth)

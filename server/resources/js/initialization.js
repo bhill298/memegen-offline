@@ -17,5 +17,13 @@ $('select').selectpicker({
 document.getElementById("meme-search").addEventListener("input", (e) => {
     let sel = $(".memes-container img");
     sel.hide();
-    sel.filter(function() {return $(this).attr("alt").includes(e.target.value)}).show();
+    sel.filter(function() {
+        for (const term of e.target.value.toLowerCase().split(" ")) {
+            if ($(this).attr("alt").toLowerCase().includes(term)) {
+                return true;
+            }
+        }
+        return false;
+    }).show();
+    reflowGrid();
 });
