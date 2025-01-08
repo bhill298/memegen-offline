@@ -6,6 +6,7 @@ var __currentMemeIndex = 0;
 var __currentMemeEndIndex = 0;
 const __memeStride = 200;
 const __meme_url = window.location.href + "img/memes/";
+const __use_php = false;
 
 function clearPhotos() {
     $("#prev-next-buttons").hide();
@@ -76,36 +77,62 @@ function addPhotos(start, count) {
     updatePhotosFromNames(names);
 }
 
+function imgArrFinish() {
+    // numeric sort
+    let collator = new Intl.Collator(undefined, {numeric: true, sensitivity: 'base'});
+    __imgNames.sort(collator.compare);
+    __initDone = true;
+    initDropdown(Math.ceil(__imgNames.length / __memeStride), function(val) {
+        loadPhotos(val * getMemeStride());
+    });
+}
+
 function loadPhotos(start, count=__memeStride) {
     // this requires the server to return a file list when you request a directory
     if (!__initDone) {
-        $.ajax({
-            type: 'GET',
-            dataType: 'html',
-            url: __meme_url,
-            success: function (response) {
-                // check if another request finished while this one was being handled
-                if (!__initDone) {
-                    // scan for any links on the rendered html page (this will get any files, not just images)
-                    let responses = response.match(/<a href=".*"/gm);
-                    for (let i = 0; i < responses.length; i++) {
-                        let name = responses[i].match(/href="(.*)"/)[1];
-                        __imgNames.push(name);
+        if (__use_php) {
+            $.ajax({
+                type: 'GET',
+                dataType: 'json',
+                url: 'get_images.php',
+                success: function (responses) {
+                    // check if another request finished while this one was being handled
+                    if (!__initDone) {
+                        for (const name of responses) {
+                            __imgNames.push(name);
+                        }
+                        imgArrFinish();
                     }
-                    // numeric sort
-                    let collator = new Intl.Collator(undefined, {numeric: true, sensitivity: 'base'});
-                    __imgNames.sort(collator.compare);
-                    __initDone = true;
-                    initDropdown(Math.ceil(__imgNames.length / __memeStride), function(val) {
-                        loadPhotos(val * getMemeStride());
-                    });
+                    addPhotos(start, count);
+                },
+                error: function() {
+                    showAlert("An error occurred while loading images (php).");
                 }
-                addPhotos(start, count);
-            },
-            error: function () {
-                showAlert("An error occurred while loading images, try again later.");
-            }
-        });
+            });
+        }
+        else {
+            $.ajax({
+                type: 'GET',
+                dataType: 'html',
+                url: __meme_url,
+                success: function (response) {
+                    // check if another request finished while this one was being handled
+                    if (!__initDone) {
+                        // scan for any links on the rendered html page (this will get any files, not just images)
+                        let responses = response.match(/<a href=".*"/gm);
+                        for (let i = 0; i < responses.length; i++) {
+                            let name = responses[i].match(/href="(.*)"/)[1];
+                            __imgNames.push(name);
+                        }
+                        imgArrFinish();
+                    }
+                    addPhotos(start, count);
+                },
+                error: function () {
+                    showAlert("An error occurred while loading images (non php).");
+                }
+            });
+        }
     }
     else {
         addPhotos(start, count);
