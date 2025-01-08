@@ -13,3 +13,9 @@ $('.cp-black').colorpicker({
 $('select').selectpicker({
     style: 'new-select',
 })
+
+document.getElementById("meme-search").addEventListener("input", (e) => {
+    let sel = $(".memes-container img");
+    sel.hide();
+    sel.filter(function() {return $(this).attr("alt").includes(e.target.value)}).show();
+});
