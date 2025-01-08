@@ -1,8 +1,8 @@
 // Update attribute of the current canvas object
 function setValue(key, value) {
     if (canvas.getActiveObject() != null) {
-        var activeText = canvas.getActiveObject()
-        activeText.set(key, value)
+        var activeText = canvas.getActiveObject();
+        activeText.set(key, value);
         canvas.renderAll();
     }
 }
@@ -10,44 +10,44 @@ function setValue(key, value) {
 // Return current background color
 function getBackgroundColor(color) {
     if ($('#bg-option').hasClass('active')) {
-        return color
+        return color;
     } else {
-        return ''
+        return '';
     }
 }
 
 function disableTextMethods() {
-    $('.text-method').attr('disabled', 'disabled')
-    $('#font-family').selectpicker('refresh')
-    $('.align').addClass('disabled')
+    $('.text-method').attr('disabled', 'disabled');
+    $('#font-family').selectpicker('refresh');
+    $('.align').addClass('disabled');
     $.each($('.cp'), function (i, cp) {
-        ($(cp).colorpicker('colorpicker')).disable()
-    })
+        ($(cp).colorpicker('colorpicker')).disable();
+    });
 }
 
 function enableTextMethods() {
-    $('.text-method').attr('disabled', false)
-    $('#font-family').selectpicker('refresh')
-    $('.align').removeClass('disabled')
+    $('.text-method').attr('disabled', false);
+    $('#font-family').selectpicker('refresh');
+    $('.align').removeClass('disabled');
     $.each($('.cp'), function (i, cp) {
         ($(cp).colorpicker('colorpicker')).enable();
-    })
+    });
 }
 
 function createShadow(color, width) {
-    return `${color} 0px 0px ${width}`
+    return `${color} 0px 0px ${width}`;
 }
 
 function setBackgroundColor(color) {
-    setValue("textBackgroundColor", getBackgroundColor(color))
+    setValue("textBackgroundColor", getBackgroundColor(color));
 }
 
 function isImage(fileType) {
     const validImageTypes = ['image/jpeg', 'image/png'];
     if (validImageTypes.includes(fileType)) {
-        return true
+        return true;
     }
-    return false
+    return false;
 }
 
 // Generate a random 6-character name
@@ -68,10 +68,10 @@ function showAlert(message) {
         .fadeIn('normal', function () {
             setTimeout(function () {
                 $('.alert-container').fadeOut('normal', function () {
-                    $('.alert-container').html('')
-                })
-            }, 3000)
-        })
+                    $('.alert-container').html('');
+                });
+            }, 3000);
+        });
 }
 
 function reflowGrid() {
@@ -84,8 +84,8 @@ function reflowGrid() {
     $grid.imagesLoaded().progress(function (instance, image) {
         $grid.masonry('layout');
         let img = image.img;
-        img.setAttribute("img-height", img.naturalHeight)
-        img.setAttribute("img-width", img.naturalWidth)
+        img.setAttribute("img-height", img.naturalHeight);
+        img.setAttribute("img-width", img.naturalWidth);
     });
     return $grid;
 }

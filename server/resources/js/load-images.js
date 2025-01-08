@@ -5,7 +5,7 @@ var __memesTemplate = $('#meme-template').html();
 var __currentMemeIndex = 0;
 var __currentMemeEndIndex = 0;
 const __memeStride = 200;
-const __meme_url = window.location.href + "img/memes/"
+const __meme_url = window.location.href + "img/memes/";
 
 function clearPhotos() {
     $("#prev-next-buttons").hide();
@@ -18,8 +18,10 @@ function clearPhotos() {
 
 function addPhoto(name) {
     // strip extension for the alt text
-    let meme = {name: name.substring(0, name.lastIndexOf(".")) || name,
-        width: -1, height: -1, url: __meme_url + name};
+    let meme = {
+        name: name.substring(0, name.lastIndexOf(".")) || name,
+        width: -1, height: -1, url: __meme_url + name
+    };
     __$memesContainer.append(Mustache.render(__memesTemplate, meme));
 }
 
@@ -101,7 +103,7 @@ function loadPhotos(start, count=__memeStride) {
                 addPhotos(start, count);
             },
             error: function () {
-                showAlert("An error occurred while loading images, try again later.")
+                showAlert("An error occurred while loading images, try again later.");
             }
         });
     }
