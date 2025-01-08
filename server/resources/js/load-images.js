@@ -4,7 +4,8 @@ var __$memesContainer = $('.memes-container');
 var __memesTemplate = $('#meme-template').html();
 var __currentMemeIndex = 0;
 var __currentMemeEndIndex = 0;
-const __memeStride = 200;
+// this sets the images per page
+const __memeStride = 80;
 const __meme_url = window.location.href + "img/memes/";
 const __use_php = false;
 
