@@ -1,5 +1,5 @@
-# Meme-It
-Meme it is a simple meme generator built using HTML5 Canvas library Fabric.Js, and it allows you to manipulate text or images on chosen meme template.
+# Meme Generator
+A simple meme generator built using HTML5 Canvas library Fabric.Js, and it allows you to manipulate text or images on chosen meme template. A fork of [Meme-it](https://github.com/Abd3lwahab/Meme-It).
 
 ## Additional Features
 This fork adds search, scripts for mass downloading images, and is designed for offline use unlike the upstream repo. The search is rudimentary and works by searching each word individually (space-separated) in the search box on the image filenames.
