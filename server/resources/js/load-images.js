@@ -41,7 +41,7 @@ function getImages() {
 
 function updatePhotosFromNames(names) {
     clearPhotos();
-    for (name of names) {
+    for (let name of names) {
         addPhoto(name);
     }
     let $grid = reflowGrid();
