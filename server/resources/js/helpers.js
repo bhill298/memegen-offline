@@ -122,7 +122,7 @@ function doMemeSearch(searchBoxContents) {
         let names = [];
         let terms = searchBoxContents.toLowerCase().split(" ");
         let memeStride = getMemeStride();
-        for (name of getImages()) {
+        for (let name of getImages()) {
             if (names.length >= memeStride) {
                 break;
             }
