@@ -84,6 +84,8 @@ function imgArrFinish() {
     __imgNames.sort(collator.compare);
     __initDone = true;
     initDropdown(Math.ceil(__imgNames.length / __memeStride), function(val) {
+        // clear search box
+        $('#meme-search').val('');
         loadPhotos(val * getMemeStride());
     });
 }
