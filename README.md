@@ -1,8 +1,10 @@
 # Meme Generator
 A simple meme generator built using HTML5 Canvas library Fabric.Js, and it allows you to manipulate text or images on chosen meme template. A fork of [Meme-it](https://github.com/Abd3lwahab/Meme-It).
 
+Favicon image art originally from [@StrayRogue](http://twitter.com/strayrogue).
+
 ## Additional Features
-This fork adds search, scripts for mass downloading images, and is designed for offline use unlike the upstream repo. The search is rudimentary and works by searching each word individually (space-separated) in the search box on the image filenames.
+This fork adds search, scripts for mass downloading images, some quality of life improvements to the image edit interface, and is designed for offline use unlike the upstream repo. The search is rudimentary and works by searching each word in the search box individually (space-separated) on the image filenames.
 
 ## Simple setup (Ubuntu)
 Place images in `server/img/memes/` (delete placeholder image first).
