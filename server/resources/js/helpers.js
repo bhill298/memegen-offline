@@ -170,6 +170,8 @@ function initDropdown(num, callback) {
 }
 
 function setDropdown(val) {
+    // clear search box
+    $('#meme-search').val('');
     let $sel = $("#page-dropdown");
     $sel.selectpicker("val", val);
 }
