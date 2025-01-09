@@ -68,13 +68,14 @@ function processMeme(memeInfo) {
             // ctrl + v
             if (keyMap[86] === true) {
                 if (srcObj) {
-                    let newObj = fabric.util.object.clone(srcObj);
-                    // place it a little bit down and to the right
-			        newObj.set("top", srcObj.top + (10 * (1 + numPastes)));
-			        newObj.set("left", srcObj.left + (10 * (1 + numPastes)));
-                    canvas.add(newObj);
-                    // keep moving down and to the right with each new paste
-                    numPastes++;
+                    srcObj.clone(function(newObj) {
+                        // place it a little bit down and to the right
+                        newObj.set("top", srcObj.top + (10 * (1 + numPastes)));
+                        newObj.set("left", srcObj.left + (10 * (1 + numPastes)));
+                        canvas.add(newObj);
+                        // keep moving down and to the right with each new paste
+                        numPastes++;
+                    });
                     e.preventDefault();
                 }
             }
