@@ -1,4 +1,8 @@
 var canvas;
+// keyCode -> pressed
+var keyMap;
+var srcObj;
+var numPastes;
 
 function deleteSelected(allowDeleteWhenEditing=false) {
     if (canvas) {
@@ -7,6 +11,17 @@ function deleteSelected(allowDeleteWhenEditing=false) {
             canvas.remove(obj);
         }
     }
+}
+
+function copySelected() {
+    let obj = canvas.getActiveObject();
+    if (obj && !obj.isEditing) {
+        // clone it immediately so it is captured as it is, in case it is edited later
+        srcObj = fabric.util.object.clone(obj);
+        numPastes = 0;
+        return true;
+    }
+    return false;
 }
 
 // Meme process
@@ -26,16 +41,54 @@ function processMeme(memeInfo) {
         selection: false,
         allowTouchScrolling: true
     });
+
+    keyMap = new Map();
+    srcObj = null;
+    numPastes = 0;
+
     // we select the wrapper because it'll be present on document load
     // divs also need a tab index to be focusable
-    $('#meme-canvas-wrapper').keyup(function (e) {
+    $('#meme-canvas-wrapper').off('keydown').keydown(function (e) {
+        keyMap[e.keyCode] = true;
+        // ctrl is being held down
+        if (keyMap[17] === true) {
+            // ctrl + c
+            if (keyMap[67] === true) {
+                if (copySelected()) {
+                    e.preventDefault();
+                }
+            }
+            // ctrl + x
+            if (keyMap[88] === true) {
+                if (copySelected()) {
+                    deleteSelected();
+                    e.preventDefault();
+                }
+            }
+            // ctrl + v
+            if (keyMap[86] === true) {
+                if (srcObj) {
+                    let newObj = fabric.util.object.clone(srcObj);
+                    // place it a little bit down and to the right
+			        newObj.set("top", srcObj.top + (10 * (1 + numPastes)));
+			        newObj.set("left", srcObj.left + (10 * (1 + numPastes)));
+                    canvas.add(newObj);
+                    // keep moving down and to the right with each new paste
+                    numPastes++;
+                    e.preventDefault();
+                }
+            }
+        }
         // delete selected element
         if (e.keyCode == 46 ||
             e.key == 'Delete' ||
-            e.code == 'Delete')
-        {
+            e.code == 'Delete') {
             deleteSelected();
         }
+    });
+
+    $('#meme-canvas-wrapper').off('keyup').keyup(function (e) {
+        keyMap[e.keyCode] = false;
     });
 
     // Scale is a range input allow small screen users to scale the object easily
