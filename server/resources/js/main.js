@@ -1,9 +1,9 @@
 var canvas;
 
-function deleteSelected() {
+function deleteSelected(allowDeleteWhenEditing=false) {
     if (canvas) {
         let obj = canvas.getActiveObject();
-        if (obj && !obj.isEditing) {
+        if (obj && (allowDeleteWhenEditing || !obj.isEditing)) {
             canvas.remove(obj);
         }
     }
@@ -108,7 +108,7 @@ function processMeme(memeInfo) {
     });
 
     $("#canvas-delete").off('click').on('click', function () {
-        deleteSelected();
+        deleteSelected(true);
     });
 
     $("#canvas-clear").off('click').on('click', function () {
