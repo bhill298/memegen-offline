@@ -82,10 +82,15 @@ function reflowGrid() {
         transitionDuration: 0
     });
     $grid.imagesLoaded().progress(function (instance, image) {
-        $grid.masonry('layout');
-        let img = image.img;
-        img.setAttribute("img-height", img.naturalHeight);
-        img.setAttribute("img-width", img.naturalWidth);
+        if (image.isLoaded) {
+            let img = image.img;
+            img.setAttribute("img-height", img.naturalHeight);
+            img.setAttribute("img-width", img.naturalWidth);
+            $grid.masonry('layout');
+        }
+        else {
+            showAlert(`Image ${image.img.src} failed to load`);
+        }
     });
     return $grid;
 }

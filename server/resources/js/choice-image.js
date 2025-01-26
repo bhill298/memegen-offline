@@ -3,13 +3,19 @@ $(function () {
     // Event: Choice meme from top 100
     $('.memes-container').delegate('img', 'click', function () {
         var $img = $(this);
+        if ($img.length === 0 || !$img[0].complete || !$img[0].naturalWidth || handlingClick) {
+            // image not loaded or handling another click
+            return;
+        }
         var imgInfo = {
             url: $img.attr('src'),
             height: $img.attr('img-height'),
             width: $img.attr('img-width'),
         }
         // need to wait for image to load / don't fire an event while another one is being handled
-        if (parseInt(imgInfo.width) === -1 || handlingClick) {
+        if (imgInfo.width === undefined || imgInfo.height === undefined || parseInt(imgInfo.width) <= 0 || parseInt(imgInfo.height) <= 0) {
+            // invalid width or height
+            showAlert(`Couldn't load image canvas: bad width or height (w=${imgInfo.width} h=${imgInfo.height})`);
             return;
         }
         handlingClick = true;
