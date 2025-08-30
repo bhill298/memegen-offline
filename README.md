@@ -3,6 +3,9 @@ A simple meme generator built using the HTML5 Canvas library Fabric.Js. A fork o
 
 Favicon image art originally from [@StrayRogue](http://twitter.com/strayrogue).
 
+## Fonts
+The fonts have been removed from this repo due to potential copyright issues. To see what fonts are expected, see `server/resources/css/fonts.css` and edit that file if needed. Any downloaded files should be placed in `server/resources/fonts`. If the fonts are installed locally on the user's machine, this will also work.
+
 ## Additional Features
 This fork adds search, scripts for mass downloading images, some quality of life improvements to the image edit interface, and is designed for offline use unlike the original repo. The search is rudimentary and works by searching each word in the search box individually (space-separated) on the image filenames.
 
