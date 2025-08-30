@@ -1,6 +1,6 @@
 // Handle custom fonts
 function loadFont(font) {
-    const customFonts = ['Arial Black', 'Comic Sans Ms', 'Impact', 'Trebuchet MS'];
+    const customFonts = ['Arial Black', 'Comic Sans MS', 'Impact', 'Trebuchet MS'];
     var text = canvas.getActiveObject();
     if (customFonts.includes(font)) {
         var myfont = new FontFaceObserver(font);
