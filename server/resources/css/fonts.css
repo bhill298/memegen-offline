@@ -1,5 +1,12 @@
 @font-face {
-    font-family:"Arial Black";
+    font-family: "Arial";
+    font-style: normal;
+    font-weight: normal;
+    src: local("Arial"), url("../fonts/arial.ttf") format("truetype");
+}
+
+@font-face {
+    font-family: "Arial Black";
     font-style: normal;
     font-weight: normal;
     src: local("Arial Black"), url("../fonts/ariblk.ttf") format("truetype"), local("Arial");
@@ -27,9 +34,66 @@
 }
 
 @font-face {
-    font-family:"Impact";
+    font-family: "Impact";
     font-style: normal;
     font-weight: normal;
     src: local("Impact"), url("../fonts/impact.ttf") format("truetype");
 }
 
+
+@font-face {
+    font-family: "Bookman Old Style";
+    font-style: normal;
+    font-weight: normal;
+    src: local("Bookman Old Style"), url("../fonts/BOOKOS.TTF") format("truetype");
+}
+
+@font-face {
+    font-family: "Courier New";
+    font-style: normal;
+    font-weight: normal;
+    src: local("Courier New"), url("../fonts/cour.ttf") format("truetype");
+}
+
+@font-face {
+    font-family: "Garamond";
+    font-style: normal;
+    font-weight: normal;
+    src: local("Garamond"), url("../fonts/GARA.TTF") format("truetype");
+}
+
+@font-face {
+    font-family: "Georgia";
+    font-style: normal;
+    font-weight: normal;
+    src: local("Georgia"), url("../fonts/georgia.ttf") format("truetype");
+}
+
+/* Helvetica */
+@font-face {
+    font-family: "NimbusSanL";
+    font-style: normal;
+    font-weight: normal;
+    src: local("NimbusSanL"), url("../fonts/NimbusSanL-Reg.otf") format("opentype");
+}
+
+@font-face {
+    font-family: "Palatino Linotype";
+    font-style: normal;
+    font-weight: normal;
+    src: local("Palatino Linotype"), url("../fonts/pala.ttf") format("truetype");
+}
+
+@font-face {
+    font-family: "Times New Roman";
+    font-style: normal;
+    font-weight: normal;
+    src: local("Times New Roman"), url("../fonts/times.ttf") format("truetype");
+}
+
+@font-face {
+    font-family: "Verdana";
+    font-style: normal;
+    font-weight: normal;
+    src: local("Verdana"), url("../fonts/verdana.ttf") format("truetype");
+}
