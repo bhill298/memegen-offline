@@ -174,6 +174,38 @@ function processMeme(memeInfo) {
             e.code == 'Delete') {
             deleteSelected();
         }
+
+        // handle arrow keys
+        // this gets the group if a group is selected
+        const activeObject = canvas.getActiveObject();
+        if (activeObject) {
+            const moveMultiplier = 5;
+            let moveX = 0;
+            let moveY = 0;
+
+            switch (e.key) {
+                case 'ArrowUp':
+                    moveY = -moveMultiplier;
+                    break;
+                case 'ArrowDown':
+                    moveY = moveMultiplier;
+                    break;
+                case 'ArrowLeft':
+                    moveX = -moveMultiplier;
+                    break;
+                case 'ArrowRight':
+                    moveX = moveMultiplier;
+                    break;
+            }
+
+            if (moveX !== 0 || moveY !== 0) {
+                activeObject.left += moveX;
+                activeObject.top += moveY;
+                activeObject.setCoords();
+                canvas.renderAll();
+                e.preventDefault();
+            }
+        }
     });
 
     $('#meme-canvas-wrapper').off('keyup').keyup(function (e) {
