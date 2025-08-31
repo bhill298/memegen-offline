@@ -1,12 +1,27 @@
 // Intialize color picker
 $('#cp-text').colorpicker({
-    fallbackColor: 'rgb(255, 255, 255)',
+    fallbackColor: '#ffffff',
     input: '',
+    useAlpha: false
+});
+
+// initialize this first to make sure it is rgba
+$('#cp-brush').colorpicker({
+    fallbackColor: '#000000ff',
+    format: 'rgba',
+    useAlpha: true
+});
+
+$('#cp-background').colorpicker({
+    fallbackColor: '#000000ff',
+    format: 'rgba',
+    useAlpha: true
 });
 
 $('.cp-black').colorpicker({
     fallbackColor: '#000000',
     input: '',
+    useAlpha: false
 });
 
 // Intialize font-family select

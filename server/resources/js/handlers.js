@@ -21,7 +21,8 @@ function loadFont(font) {
 function updateInputs() {
     var activeObject = canvas.getActiveObject();
 
-    if (activeObject.get('type') == "textbox") {
+    let objectType = activeObject.get('type');
+    if (objectType === "textbox") {
         enableTextMethods();
         $('#cp-text').colorpicker('setValue', activeObject.fill);
         $('#font-family').val(activeObject.fontFamily).selectpicker('refresh');
@@ -37,8 +38,8 @@ function updateInputs() {
         $('#bg-option').attr('data', activeObject.textBackgroundColor).trigger('update-status');
         $('#cp-background').colorpicker('setValue', activeObject.textBackgroundColor);
     } else {
-        // Disable text methods when select an image
-        disableTextMethods();
+        // allow opacity if an image
+        disableTextMethods(objectType === 'image');
     }
 
     $('#opacity').val(parseInt(activeObject.opacity * 100));

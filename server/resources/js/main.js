@@ -4,11 +4,17 @@ var keyMap;
 var srcObj;
 var numPastes;
 
-function deleteSelected(allowDeleteWhenEditing=false) {
+function deleteSelected(allowDeleteWhenEditing = false) {
     if (canvas) {
-        let obj = canvas.getActiveObject();
-        if (obj && (allowDeleteWhenEditing || !obj.isEditing)) {
-            canvas.remove(obj);
+        const activeObjects = canvas.getActiveObjects();
+        if (activeObjects.length > 0) {
+            activeObjects.forEach(obj => {
+                if (allowDeleteWhenEditing || !obj.isEditing) {
+                    canvas.remove(obj);
+                }
+            });
+            canvas.discardActiveObject();
+            canvas.renderAll();
         }
     }
 }
@@ -34,6 +40,11 @@ function processMeme(memeInfo) {
         $('.canvas-container').css('height', width * memeInfo.height / memeInfo.width);
     }
 
+    // brush tool state
+    let brushMode = false;
+    let brushSize = 10;
+    let brushColor = '#000000ff';
+
     // Intialize fabric canvas
     canvas = new fabric.Canvas('meme-canvas', {
         width: memeInfo.width,
@@ -45,6 +56,78 @@ function processMeme(memeInfo) {
     keyMap = new Map();
     srcObj = null;
     numPastes = 0;
+
+    // Ensure select mode is the default
+    canvas.selection = true;
+    canvas.defaultCursor = 'default';
+
+    // Brush tool using Fabric.js free drawing mode
+    function setBrushMode(active) {
+        if (active) {
+            disableTextMethods();
+            canvas.isDrawingMode = true;
+            if (!canvas.freeDrawingBrush) {
+                canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+            }
+            canvas.freeDrawingBrush.width = brushSize;
+            canvas.freeDrawingBrush.color = brushColor;
+            canvas.selection = false;
+            canvas.defaultCursor = 'crosshair';
+        }
+        else {
+            enableTextMethods();
+            canvas.isDrawingMode = false;
+            canvas.selection = true;
+            canvas.defaultCursor = 'default';
+        }
+    }
+
+    // Ensure brush controls are hidden and brush mode is off by default
+    $('#brush-controls').hide();
+    $('#toggle-brush').removeClass('active');
+    brushMode = false;
+    setBrushMode(false);
+
+    // Brush tool UI events (after canvas is created)
+    $('#toggle-brush').off('click').on('click', function() {
+        brushMode = !brushMode;
+        canvas.discardActiveObject().renderAll();
+        if (brushMode) {
+            $(this).addClass('active');
+            $('#brush-controls').show();
+        } else {
+            $(this).removeClass('active');
+            $('#brush-controls').hide();
+        }
+        setBrushMode(brushMode);
+    });
+
+    function setBrushSize() {
+        brushSize = parseInt($("#brush-size").val());
+        $('#brush-size-display').text(brushSize + 'px');
+        if (brushMode && canvas.freeDrawingBrush) {
+            canvas.freeDrawingBrush.width = brushSize;
+        }
+    }
+
+    setBrushSize();
+
+    $('#brush-size').off('input').on('input', function() {
+        setBrushSize();
+    });
+
+    function setBrushColor() {
+        brushColor = $('#cp-brush').colorpicker('getValue');
+        if (brushMode && canvas.freeDrawingBrush) {
+            canvas.freeDrawingBrush.color = brushColor;
+        }
+    }
+
+    setBrushColor();
+
+    $('#cp-brush').off('colorpickerChange').on('colorpickerChange', function() {
+        setBrushColor();
+    });
 
     // we select the wrapper because it'll be present on document load
     // divs also need a tab index to be focusable
@@ -123,7 +206,7 @@ function processMeme(memeInfo) {
             strokeWidth: $('#stroke-width').val(),
             shadow: createShadow($('#cp-shadow').colorpicker('getValue'), $('#shadow-depth').val()),
             textBackgroundColor: getBackgroundColor($('#cp-background').colorpicker('getValue')),
-            opacity: parseFloat($('#opacity').val() / 100)
+            opacity: parseFloat($('#opacity').val()) / 100
         });
 
         text.scaleToWidth(canvas.width / 5);
@@ -154,7 +237,7 @@ function processMeme(memeInfo) {
                     canvas.add(image).setActiveObject(image);
                     $('#scale').val(image.scaleX);
                 }, {
-                    opacity: $('#opacity').val()
+                    opacity: parseFloat($('#opacity').val()) / 100
                 });
             }
         }
@@ -167,6 +250,7 @@ function processMeme(memeInfo) {
 
     $("#canvas-clear").off('click').on('click', function () {
         canvas.getObjects().forEach(el => canvas.remove(el));
+        canvas.discardActiveObject().renderAll();
     });
 
     // Custom control

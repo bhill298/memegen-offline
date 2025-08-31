@@ -198,6 +198,22 @@
                         <div class="col-auto">
                             <button class="btn btn-danger" id="canvas-clear">Clear</button>
                         </div>
+                        <div class="col-auto">
+                            <button class="btn btn-info" id="toggle-brush" title="Toggle Brush Tool"><i class="fas fa-paint-brush"></i> Brush</button>
+                        </div>
+                        <div class="col-auto" id="brush-controls" style="display:none; padding-top:8px;">
+                            <div style="display:inline-block; margin-right:12px;">
+                                <label for="brush-size" style="margin-bottom:0; font-size:14px;">Size:</label>
+                                <input type="range" id="brush-size" min="1" max="80" value="20" style="width:120px; vertical-align:middle;">
+                                <span id="brush-size-display" style="display:inline-block; width:25px; margin-left:4px; font-size:12px; text-align:center;">10px</span>
+                            </div>
+                            <div style="display:inline-block;">
+                                <label>Color:</label>
+                                <div class="input-group cp cp-black" id="cp-brush" style="height:38px">
+                                    <span class="input-group-text colorpicker-input-addon" id="brush-color" value="#000000ff"><i></i></span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div class="mb-4 mt-3">

@@ -16,12 +16,25 @@ function getBackgroundColor(color) {
     }
 }
 
-function disableTextMethods() {
+function disableTextMethods(allowOpacity = false) {
     $('.text-method').attr('disabled', 'disabled');
     $('#font-family').selectpicker('refresh');
     $('.align').addClass('disabled');
+    if (allowOpacity) {
+        // ensure enabled
+        $('#opacity').attr('disabled', false);
+    }
+    else {
+        $('#opacity').attr('disabled', true);
+    }
     $.each($('.cp'), function (i, cp) {
-        ($(cp).colorpicker('colorpicker')).disable();
+        let obj = $(cp).colorpicker('colorpicker');
+        if (cp.id !== 'cp-brush') {
+            obj.disable();
+        }
+        else {
+            obj.enable();
+        }
     });
 }
 
@@ -29,8 +42,15 @@ function enableTextMethods() {
     $('.text-method').attr('disabled', false);
     $('#font-family').selectpicker('refresh');
     $('.align').removeClass('disabled');
+    $('#opacity').attr('disabled', false);
     $.each($('.cp'), function (i, cp) {
-        ($(cp).colorpicker('colorpicker')).enable();
+        let obj = $(cp).colorpicker('colorpicker');
+        if (cp.id !== 'cp-brush') {
+            obj.enable();
+        }
+        else {
+            obj.disable();
+        }
     });
 }
 
@@ -43,7 +63,7 @@ function setBackgroundColor(color) {
 }
 
 function isImage(fileType) {
-    const validImageTypes = ['image/jpeg', 'image/png'];
+    const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (validImageTypes.includes(fileType)) {
         return true;
     }
