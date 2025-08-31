@@ -88,45 +88,50 @@ function processMeme(memeInfo) {
     brushMode = false;
     setBrushMode(false);
 
-    // Brush tool UI events (after canvas is created)
-    $('#toggle-brush').off('click').on('click', function() {
-        brushMode = !brushMode;
+    function toggleBrush(obj, newBrushMode) {
+        brushMode = newBrushMode;
         canvas.discardActiveObject().renderAll();
         if (brushMode) {
-            $(this).addClass('active');
+            obj.addClass('active');
             $('#brush-controls').show();
-        } else {
-            $(this).removeClass('active');
+        }
+        else {
+            obj.removeClass('active');
             $('#brush-controls').hide();
         }
         setBrushMode(brushMode);
+    }
+
+    // Brush tool UI events (after canvas is created)
+    $('#toggle-brush').off('click').on('click', function() {
+        toggleBrush($(this), !brushMode);
     });
 
-    function setBrushSize() {
-        brushSize = parseInt($("#brush-size").val());
+    function setBrushSize(obj) {
+        brushSize = parseInt(obj.val());
         $('#brush-size-display').text(brushSize + 'px');
         if (brushMode && canvas.freeDrawingBrush) {
             canvas.freeDrawingBrush.width = brushSize;
         }
     }
 
-    setBrushSize();
+    setBrushSize($('#brush-size'));
 
     $('#brush-size').off('input').on('input', function() {
-        setBrushSize();
+        setBrushSize($(this));
     });
 
-    function setBrushColor() {
-        brushColor = $('#cp-brush').colorpicker('getValue');
+    function setBrushColor(obj) {
+        brushColor = obj.colorpicker('getValue');
         if (brushMode && canvas.freeDrawingBrush) {
             canvas.freeDrawingBrush.color = brushColor;
         }
     }
 
-    setBrushColor();
+    setBrushColor($('#cp-brush'));
 
     $('#cp-brush').off('colorpickerChange').on('colorpickerChange', function() {
-        setBrushColor();
+        setBrushColor($(this));
     });
 
     // we select the wrapper because it'll be present on document load
@@ -214,6 +219,7 @@ function processMeme(memeInfo) {
 
         canvas.add(text).setActiveObject(text);
         loadFont(text.fontFamily);
+        toggleBrush($('#toggle-brush'), false);
     });
 
     // Event: Add new image
@@ -242,6 +248,8 @@ function processMeme(memeInfo) {
             }
         }
         reader.readAsDataURL(file);
+
+        toggleBrush($('#toggle-brush'), false);
     });
 
     $("#canvas-delete").off('click').on('click', function () {
