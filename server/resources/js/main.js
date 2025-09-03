@@ -45,6 +45,36 @@ function processMeme(memeInfo) {
     let brushSize = 10;
     let brushColor = '#000000ff';
 
+    function colorStringToRgba(colorStr) {
+        if (!colorStr) return 'rgba(0,0,0,1)';
+
+        if (colorStr.startsWith('rgba')) {
+            return colorStr;
+        }
+
+        if (colorStr.startsWith('#')) {
+            let hex = colorStr;
+            let r = 0, g = 0, b = 0, a = 1;
+
+            if (hex.length === 4) { // #RGB
+                r = parseInt(hex[1] + hex[1], 16);
+                g = parseInt(hex[2] + hex[2], 16);
+                b = parseInt(hex[3] + hex[3], 16);
+            } else if (hex.length === 7) { // #RRGGBB
+                r = parseInt(hex.slice(1, 3), 16);
+                g = parseInt(hex.slice(3, 5), 16);
+                b = parseInt(hex.slice(5, 7), 16);
+            } else if (hex.length === 9) { // #RRGGBBAA
+                r = parseInt(hex.slice(1, 3), 16);
+                g = parseInt(hex.slice(3, 5), 16);
+                b = parseInt(hex.slice(5, 7), 16);
+                a = parseFloat((parseInt(hex.slice(7, 9), 16) / 255).toFixed(2));
+            }
+            return `rgba(${r},${g},${b},${a})`;
+        }
+        return colorStr;
+    }
+
     // Intialize fabric canvas
     canvas = new fabric.Canvas('meme-canvas', {
         width: memeInfo.width,
@@ -68,17 +98,31 @@ function processMeme(memeInfo) {
             canvas.isDrawingMode = true;
             if (!canvas.freeDrawingBrush) {
                 canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+                const originalRender = canvas.freeDrawingBrush._render;
+                canvas.freeDrawingBrush._render = function() {
+                    originalRender.call(this);
+                    if (this._points && this._points.length > 0) {
+                        const pointer = this._points[this._points.length - 1];
+                        const radius = this.width / 2;
+                        const ctx = this.canvas.contextTop;
+                        ctx.beginPath();
+                        ctx.arc(pointer.x, pointer.y, radius, 0, Math.PI * 2, false);
+                        ctx.fillStyle = colorStringToRgba(this.color);
+                        ctx.fill();
+                    }
+                };
             }
             canvas.freeDrawingBrush.width = brushSize;
             canvas.freeDrawingBrush.color = brushColor;
             canvas.selection = false;
-            canvas.defaultCursor = 'crosshair';
+            canvas.freeDrawingCursor = 'none';
         }
         else {
             enableTextMethods();
             canvas.isDrawingMode = false;
             canvas.selection = true;
             canvas.defaultCursor = 'default';
+            canvas.clearContext(canvas.contextTop);
         }
     }
 
@@ -110,8 +154,10 @@ function processMeme(memeInfo) {
     function setBrushSize(obj) {
         brushSize = parseInt(obj.val());
         $('#brush-size-display').text(brushSize + 'px');
-        if (brushMode && canvas.freeDrawingBrush) {
-            canvas.freeDrawingBrush.width = brushSize;
+        if (brushMode) {
+            if (canvas.freeDrawingBrush) {
+                canvas.freeDrawingBrush.width = brushSize;
+            }
         }
     }
 
@@ -312,6 +358,41 @@ function processMeme(memeInfo) {
         'selection:created': updateInputs,
         'selection:updated': updateInputs,
         'selection:cleared': enableTextMethods,
+    });
+
+    function hoverCursorHandler(o) {
+        if (!brushMode) return;
+        var pointer = canvas.getPointer(o.e);
+        var radius = brushSize / 2;
+        var ctx = canvas.contextTop;
+        canvas.clearContext(ctx);
+        ctx.beginPath();
+        ctx.arc(pointer.x, pointer.y, radius, 0, Math.PI * 2, false);
+        ctx.fillStyle = colorStringToRgba(brushColor);
+        ctx.fill();
+    }
+
+    canvas.on('mouse:move', hoverCursorHandler);
+
+    let isMouseDown = false;
+
+    canvas.on('mouse:down', function(o) {
+        if (!brushMode) return;
+        isMouseDown = true;
+        canvas.off('mouse:move', hoverCursorHandler);
+    });
+
+    canvas.on('mouse:up', function(o) {
+        if (!brushMode) return;
+        isMouseDown = false;
+        canvas.on('mouse:move', hoverCursorHandler);
+    });
+
+    canvas.on('mouse:out', function () {
+        if (!brushMode) return;
+        if (!isMouseDown) {
+            canvas.clearContext(canvas.contextTop);
+        }
     });
 
     $('#generate-meme').off('click').on('click', function () {
