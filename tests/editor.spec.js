@@ -749,6 +749,50 @@ test('GIF safety limits reject excessive frame counts before opening the editor'
   await expect(page.locator('.canvas-container')).toHaveCount(0);
 });
 
+test('the animation file-size limit does not reject an oversized static PNG', async ({ page }) => {
+  await page.goto('/');
+  const result = await page.evaluate(async () => {
+    const png = await fetch('/img/memes/blank.png').then(response => response.arrayBuffer());
+    const imgInfo = {
+      fileName: 'oversized-static.png',
+      mimeType: 'image/png',
+      width: 1,
+      height: 1,
+      sourceFile: {
+        size: 51 * 1024 * 1024,
+        arrayBuffer: async () => png,
+      },
+    };
+    const prepared = await prepareAnimatedMemeInfo(imgInfo);
+    return { sameObject: prepared === imgInfo, animated: Boolean(prepared.animationInfo) };
+  });
+
+  expect(result).toEqual({ sameObject: true, animated: false });
+});
+
+test('the animation file-size limit still rejects an oversized animated GIF', async ({ page }) => {
+  await page.goto('/');
+  const gif = await animatedGifBuffer();
+  const message = await page.evaluate(async bytes => {
+    try {
+      await prepareAnimatedMemeInfo({
+        fileName: 'oversized-animation.gif',
+        mimeType: 'image/gif',
+        sourceFile: {
+          size: 51 * 1024 * 1024,
+          arrayBuffer: async () => new Uint8Array(bytes).buffer,
+        },
+      });
+      return '';
+    }
+    catch (error) {
+      return error.message;
+    }
+  }, Array.from(gif));
+
+  expect(message).toBe('GIF files are limited to 50 MB.');
+});
+
 test('leaving a GIF editor restores the unchanged static editor path', async ({ page }) => {
   await openGifEditor(page);
   await page.locator('.back-btn .btn').click();

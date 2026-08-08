@@ -102,13 +102,12 @@ function resolveAnimationQualityProfile(format, quality, sizePlan) {
     };
 }
 
-async function readAnimatedSource(imgInfo, label) {
+async function readAnimatedSource(imgInfo) {
     let buffer;
+    let sourceByteLength;
     if (imgInfo.sourceFile) {
-        if (imgInfo.sourceFile.size > ANIMATION_LIMITS.maxFileBytes) {
-            throw new Error(`${label} files are limited to 50 MB.`);
-        }
         buffer = await imgInfo.sourceFile.arrayBuffer();
+        sourceByteLength = Math.max(imgInfo.sourceFile.size || 0, buffer.byteLength);
     }
     else {
         const response = await fetch(imgInfo.url);
@@ -116,11 +115,9 @@ async function readAnimatedSource(imgInfo, label) {
             throw new Error(`The ${label} could not be loaded (HTTP ${response.status}).`);
         }
         buffer = await response.arrayBuffer();
+        sourceByteLength = buffer.byteLength;
     }
-    if (buffer.byteLength > ANIMATION_LIMITS.maxFileBytes) {
-        throw new Error(`${label} files are limited to 50 MB.`);
-    }
-    return buffer;
+    return { buffer, sourceByteLength };
 }
 
 function readFourCC(bytes, offset) {
@@ -248,7 +245,8 @@ async function prepareAnimatedMemeInfo(imgInfo) {
     const format = getPossibleAnimationFormat(imgInfo);
     if (!format) return imgInfo;
     const formatInfo = ANIMATION_FORMATS[format];
-    const buffer = await readAnimatedSource(imgInfo, formatInfo.label);
+    const source = await readAnimatedSource(imgInfo);
+    const buffer = source.buffer;
     let metadata;
     try {
         metadata = inspectAnimation(format, buffer);
@@ -258,6 +256,9 @@ async function prepareAnimatedMemeInfo(imgInfo) {
         throw new Error(`The selected ${formatInfo.label} could not be decoded.`);
     }
     if (!metadata) return imgInfo;
+    if (source.sourceByteLength > ANIMATION_LIMITS.maxFileBytes) {
+        throw new Error(`${formatInfo.label} files are limited to 50 MB.`);
+    }
 
     enforceAnimationLimits(metadata, formatInfo.label);
     imgInfo.width = metadata.width;
