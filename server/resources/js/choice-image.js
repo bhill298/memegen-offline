@@ -76,6 +76,14 @@ $(function () {
 
     // Event: Choice was made
     $('.choice-section').on('choice-done', function (e, imgInfo) {
+        const sizePlan = createImageSizePlan(imgInfo.width, imgInfo.height);
+        if (sizePlan.error) {
+            handlingClick = false;
+            showAlert(`Error! ${sizePlan.error}`);
+            return;
+        }
+        imgInfo.sizePlan = sizePlan;
+
         $('.choice-section').fadeOut('normal', function () {
             $('.edit-section').removeClass('d-none').hide().fadeIn();
             $('.fabric-canvas-wrapper').append(`<canvas id="meme-canvas"></canvas>`);

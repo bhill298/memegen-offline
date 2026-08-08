@@ -33,12 +33,18 @@ function copySelected() {
 
 // Meme process
 function processMeme(memeInfo) {
+    const sizePlan = memeInfo.sizePlan || createImageSizePlan(memeInfo.width, memeInfo.height);
+    if (sizePlan.error) {
+        showAlert(`Error! ${sizePlan.error}`);
+        return;
+    }
+
     // Responsive canvas
     $(window).off('resize.memeEditor').on('resize.memeEditor', resizeCanvas);
     function resizeCanvas() {
         var width = $('.fabric-canvas-wrapper').width();
         $('.canvas-container').css('width', width);
-        $('.canvas-container').css('height', width * memeInfo.height / memeInfo.width);
+        $('.canvas-container').css('height', width * sizePlan.workingHeight / sizePlan.workingWidth);
     }
 
     // brush tool state
@@ -78,8 +84,8 @@ function processMeme(memeInfo) {
 
     // Intialize fabric canvas
     canvas = new fabric.Canvas('meme-canvas', {
-        width: memeInfo.width,
-        height: memeInfo.height,
+        width: sizePlan.workingWidth,
+        height: sizePlan.workingHeight,
         selection: false,
         allowTouchScrolling: true
     });
@@ -319,10 +325,37 @@ function processMeme(memeInfo) {
             updateGenerateButton();
             return;
         }
+        try {
+            if (sizePlan.outputWasReduced) {
+                const resizedTemplate = document.createElement('canvas');
+                resizedTemplate.width = sizePlan.outputWidth;
+                resizedTemplate.height = sizePlan.outputHeight;
+                resizedTemplate.getContext('2d').drawImage(
+                    meme.getElement(), 0, 0, sizePlan.outputWidth, sizePlan.outputHeight
+                );
+                meme.setElement(resizedTemplate);
+            }
+            meme.set({
+                scaleX: sizePlan.workingWidth / meme.width,
+                scaleY: sizePlan.workingHeight / meme.height,
+            });
+        }
+        catch (error) {
+            backgroundLoadFailed = true;
+            showAlert('Error! The meme template was too large to prepare.');
+            updateGenerateButton();
+            return;
+        }
         editorCanvas.setBackgroundImage(meme, function () {
             backgroundReady = true;
             editorCanvas.renderAll();
             updateGenerateButton();
+            if (sizePlan.outputWasReduced) {
+                showAlert(
+                    `Large image: output will be resized from ${sizePlan.sourceWidth} x ${sizePlan.sourceHeight} ` +
+                    `to ${sizePlan.outputWidth} x ${sizePlan.outputHeight}.`
+                );
+            }
         });
     }, {
         crossOrigin: "anonymous"
@@ -389,6 +422,33 @@ function processMeme(memeInfo) {
                     showAlert('Error! The selected image could not be decoded.');
                     finishImageLoad();
                     return;
+                }
+                const imageSizePlan = createImageSizePlan(image.width, image.height);
+                if (imageSizePlan.error) {
+                    showAlert(`Error! ${imageSizePlan.error}`);
+                    finishImageLoad();
+                    return;
+                }
+                if (imageSizePlan.outputWasReduced) {
+                    try {
+                        const resizedImage = document.createElement('canvas');
+                        resizedImage.width = imageSizePlan.outputWidth;
+                        resizedImage.height = imageSizePlan.outputHeight;
+                        resizedImage.getContext('2d').drawImage(
+                            image.getElement(), 0, 0,
+                            imageSizePlan.outputWidth, imageSizePlan.outputHeight
+                        );
+                        image.setElement(resizedImage);
+                        showAlert(
+                            `Large added image resized to ${imageSizePlan.outputWidth} x ` +
+                            `${imageSizePlan.outputHeight}.`
+                        );
+                    }
+                    catch (error) {
+                        showAlert('Error! The selected image was too large to prepare.');
+                        finishImageLoad();
+                        return;
+                    }
                 }
                 image.scaleToWidth(editorCanvas.width / 2);
                 editorCanvas.add(image).setActiveObject(image);
@@ -493,7 +553,7 @@ function processMeme(memeInfo) {
         updateGenerateButton();
 
         try {
-            const exportCanvas = editorCanvas.toCanvasElement(1);
+            const exportCanvas = editorCanvas.toCanvasElement(sizePlan.exportMultiplier);
             exportCanvas.toBlob(function (blob) {
                 if (!blob) {
                     showAlert('Error! The meme could not be generated.');

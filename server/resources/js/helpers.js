@@ -70,6 +70,106 @@ function isImage(fileType) {
     return false;
 }
 
+const IMAGE_SIZE_LIMITS = Object.freeze({
+    maxInputDimension: 16384,
+    maxInputPixels: 100 * 1024 * 1024,
+    maxOutputDimension: 8192,
+    maxOutputPixels: 32 * 1024 * 1024,
+    maxWorkingDimension: 2048,
+    maxWorkingPixels: 4 * 1024 * 1024,
+});
+
+function fitImageDimensions(width, height, maxDimension, maxPixels) {
+    const scale = Math.min(
+        1,
+        maxDimension / Math.max(width, height),
+        Math.sqrt(maxPixels / (width * height))
+    );
+    return {
+        width: Math.max(1, Math.floor(width * scale)),
+        height: Math.max(1, Math.floor(height * scale)),
+    };
+}
+
+function greatestCommonDivisor(a, b) {
+    while (b !== 0) {
+        const remainder = a % b;
+        a = b;
+        b = remainder;
+    }
+    return a;
+}
+
+function fitWorkingDimensions(width, height) {
+    const fitted = fitImageDimensions(
+        width,
+        height,
+        IMAGE_SIZE_LIMITS.maxWorkingDimension,
+        IMAGE_SIZE_LIMITS.maxWorkingPixels
+    );
+    if (fitted.width === width && fitted.height === height) {
+        return fitted;
+    }
+
+    // Prefer an exact aspect ratio when a reasonably sized integer ratio exists.
+    const divisor = greatestCommonDivisor(width, height);
+    const ratioWidth = width / divisor;
+    const ratioHeight = height / divisor;
+    const factor = Math.floor(Math.min(
+        IMAGE_SIZE_LIMITS.maxWorkingDimension / ratioWidth,
+        IMAGE_SIZE_LIMITS.maxWorkingDimension / ratioHeight,
+        Math.sqrt(IMAGE_SIZE_LIMITS.maxWorkingPixels / (ratioWidth * ratioHeight))
+    ));
+    if (factor >= 1) {
+        return {
+            width: ratioWidth * factor,
+            height: ratioHeight * factor,
+        };
+    }
+    return fitted;
+}
+
+function createImageSizePlan(width, height) {
+    width = Number(width);
+    height = Number(height);
+    if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+        return { error: `Invalid image dimensions (${width} x ${height}).` };
+    }
+
+    width = Math.floor(width);
+    height = Math.floor(height);
+    if (Math.max(width, height) > IMAGE_SIZE_LIMITS.maxInputDimension ||
+        width * height > IMAGE_SIZE_LIMITS.maxInputPixels) {
+        return {
+            error: `Image is too large (${width} x ${height}). The maximum input is ` +
+                `${IMAGE_SIZE_LIMITS.maxInputDimension}px on either side and 100 megapixels.`
+        };
+    }
+
+    const output = fitImageDimensions(
+        width,
+        height,
+        IMAGE_SIZE_LIMITS.maxOutputDimension,
+        IMAGE_SIZE_LIMITS.maxOutputPixels
+    );
+    const working = fitWorkingDimensions(output.width, output.height);
+    const exportMultiplier = Math.min(
+        output.width / working.width,
+        output.height / working.height
+    );
+
+    return {
+        sourceWidth: width,
+        sourceHeight: height,
+        outputWidth: Math.floor(working.width * exportMultiplier),
+        outputHeight: Math.floor(working.height * exportMultiplier),
+        workingWidth: working.width,
+        workingHeight: working.height,
+        exportMultiplier: exportMultiplier,
+        outputWasReduced: output.width < width || output.height < height,
+    };
+}
+
 // Generate a random 6-character name
 function createImgName() {
     var result = '';
