@@ -1082,6 +1082,34 @@ test('animated export applies each segment only within its frame range', async (
   expect(colorCounts[3]).toBeGreaterThan(colorCounts[0]);
 });
 
+test('animated export releases each rendered segment overlay', async ({ page }) => {
+  await openSegmentedGifEditor(page);
+  await page.locator('#animation-frame-slider').fill('1');
+  await page.locator('#animation-split').click();
+  await page.locator('#animation-frame-slider').fill('2');
+  await page.locator('#animation-split').click();
+  await page.evaluate(() => {
+    window.__exportOverlayCanvases = [];
+    const originalToCanvasElement = fabric.StaticCanvas.prototype.toCanvasElement;
+    fabric.StaticCanvas.prototype.toCanvasElement = function (...args) {
+      const output = originalToCanvasElement.apply(this, args);
+      window.__exportOverlayCanvases.push(output);
+      return output;
+    };
+  });
+
+  await downloadAnimatedOutput(page);
+
+  expect(await page.evaluate(() => __exportOverlayCanvases.map(overlay => ({
+    width: overlay.width,
+    height: overlay.height,
+  })))).toEqual([
+    { width: 0, height: 0 },
+    { width: 0, height: 0 },
+    { width: 0, height: 0 },
+  ]);
+});
+
 test('added image overlays remain local to their animation segment', async ({ page }) => {
   await openSegmentedGifEditor(page);
   await page.locator('#animation-frame-slider').fill('2');

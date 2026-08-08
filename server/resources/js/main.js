@@ -1078,24 +1078,15 @@ function processMeme(memeInfo) {
         });
     }
 
-    async function renderAnimationSegmentOverlays() {
-        captureActiveSegmentState();
-        const overlays = [];
-        for (const segment of animationInfo.timeline.segments) {
-            overlays.push(await renderSerializedOverlay(segment.editorState));
-        }
-        return overlays;
-    }
-
     async function exportAnimatedImage() {
         animationFramePlayer.pause();
         flushScheduledHistory();
+        captureActiveSegmentState();
         const outputFormat = $animationOutputFormat.val() || animationInfo.format;
         const outputInfo = ANIMATION_FORMATS[outputFormat];
         const qualityProfile = resolveAnimationQualityProfile(
             outputFormat, $animationQuality.val(), sizePlan
         );
-        const segmentOverlays = await renderAnimationSegmentOverlays();
         const sourceCanvas = document.createElement('canvas');
         sourceCanvas.width = animationInfo.metadata.width;
         sourceCanvas.height = animationInfo.metadata.height;
@@ -1113,34 +1104,56 @@ function processMeme(memeInfo) {
         );
         await activeAnimationEncoder.initialize();
 
-        let segmentIndex = 0;
-        for (let frameIndex = 0; frameIndex < animationFrames.length; frameIndex++) {
-            if (editorDestroyed || canvas !== editorCanvas) {
-                throw new Error(`The ${outputInfo.label} operation was cancelled.`);
+        let segmentIndex = -1;
+        let segmentOverlay;
+        try {
+            for (let frameIndex = 0; frameIndex < animationFrames.length; frameIndex++) {
+                if (editorDestroyed || canvas !== editorCanvas) {
+                    throw new Error(`The ${outputInfo.label} operation was cancelled.`);
+                }
+                const frame = animationFrames[frameIndex];
+                sourceContext.putImageData(
+                    new ImageData(frame.data, frame.width, frame.height), 0, 0
+                );
+                outputContext.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
+                outputContext.drawImage(
+                    sourceCanvas, 0, 0, outputCanvas.width, outputCanvas.height
+                );
+                let nextSegmentIndex = segmentIndex;
+                while (nextSegmentIndex + 1 < animationInfo.timeline.segments.length &&
+                    animationInfo.timeline.segments[nextSegmentIndex + 1].startFrame <= frameIndex) {
+                    nextSegmentIndex++;
+                }
+                if (nextSegmentIndex !== segmentIndex) {
+                    if (segmentOverlay) {
+                        segmentOverlay.width = 0;
+                        segmentOverlay.height = 0;
+                    }
+                    segmentIndex = nextSegmentIndex;
+                    segmentOverlay = await renderSerializedOverlay(
+                        animationInfo.timeline.segments[segmentIndex].editorState
+                    );
+                    if (editorDestroyed || canvas !== editorCanvas) {
+                        throw new Error(`The ${outputInfo.label} operation was cancelled.`);
+                    }
+                }
+                outputContext.drawImage(
+                    segmentOverlay, 0, 0, outputCanvas.width, outputCanvas.height
+                );
+                const pixels = outputContext.getImageData(
+                    0, 0, outputCanvas.width, outputCanvas.height
+                ).data;
+                animationExportLabel = `Preparing ${outputInfo.label}... ` +
+                    `${frameIndex + 1}/${animationFrames.length}`;
+                updateGenerateButton();
+                await activeAnimationEncoder.addFrame(pixels, frame.delay);
             }
-            const frame = animationFrames[frameIndex];
-            sourceContext.putImageData(
-                new ImageData(frame.data, frame.width, frame.height), 0, 0
-            );
-            outputContext.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
-            outputContext.drawImage(
-                sourceCanvas, 0, 0, outputCanvas.width, outputCanvas.height
-            );
-            while (segmentIndex + 1 < animationInfo.timeline.segments.length &&
-                animationInfo.timeline.segments[segmentIndex + 1].startFrame <= frameIndex) {
-                segmentIndex++;
+        }
+        finally {
+            if (segmentOverlay) {
+                segmentOverlay.width = 0;
+                segmentOverlay.height = 0;
             }
-            outputContext.drawImage(
-                segmentOverlays[segmentIndex], 0, 0,
-                outputCanvas.width, outputCanvas.height
-            );
-            const pixels = outputContext.getImageData(
-                0, 0, outputCanvas.width, outputCanvas.height
-            ).data;
-            animationExportLabel = `Preparing ${outputInfo.label}... ` +
-                `${frameIndex + 1}/${animationFrames.length}`;
-            updateGenerateButton();
-            await activeAnimationEncoder.addFrame(pixels, frame.delay);
         }
 
         animationExportLabel = `Encoding ${outputInfo.label}...`;
