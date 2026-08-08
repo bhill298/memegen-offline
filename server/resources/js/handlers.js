@@ -1,18 +1,29 @@
 // Handle custom fonts
 function loadFont(font) {
     const customFonts = ['Arial', 'Arial Black', 'Comic Sans MS', 'Impact', 'Trebuchet MS', 'Bookman Old Style', 'Courier New', 'Garamond', 'Georgia', 'NimbusSanL', 'Palatino Linotype', 'Times New Roman', 'Verdana'];
-    var text = canvas.getActiveObject();
+    const fontCanvas = canvas;
+    var text = fontCanvas.getActiveObject();
+    if (!text) {
+        return;
+    }
     if (customFonts.includes(font)) {
         var myfont = new FontFaceObserver(font);
         myfont.load().then(function () {
+            if (canvas !== fontCanvas) {
+                return;
+            }
             text.set("fontFamily", "");
             text.set("fontFamily", font);
-            canvas.renderAll();
+            fontCanvas.renderAll();
             $('#font-family').selectpicker('refresh');
+        }).catch(function () {
+            if (canvas === fontCanvas) {
+                showAlert(`Error! The ${font} font could not be loaded.`);
+            }
         });
     } else {
         text.set("fontFamily", font);
-        canvas.renderAll();
+        fontCanvas.renderAll();
         $('#font-family').selectpicker('refresh');
     }
 }

@@ -85,7 +85,32 @@ function processMeme(memeInfo) {
     });
 
     const editorCanvas = canvas;
+    const $generateButton = $('#generate-meme');
+    let backgroundReady = false;
+    let backgroundLoadFailed = false;
+    let pendingAssetLoads = 0;
+    let isExporting = false;
     var hoverAnimationRequestId;
+
+    function updateGenerateButton() {
+        let label = 'Generate Meme';
+        if (!backgroundReady) {
+            label = backgroundLoadFailed ? 'Template Load Failed' : 'Loading Template...';
+        }
+        else if (pendingAssetLoads > 0) {
+            label = 'Loading Image...';
+        }
+        else if (isExporting) {
+            label = 'Generating...';
+        }
+        $generateButton
+            .prop('disabled', !backgroundReady || pendingAssetLoads > 0 || isExporting)
+            .attr('aria-busy', !backgroundReady || pendingAssetLoads > 0 || isExporting)
+            .text(label);
+    }
+
+    updateGenerateButton();
+
     destroyMemeEditor = function () {
         $(window).off('.memeEditor');
         if (hoverAnimationRequestId !== undefined) {
@@ -284,8 +309,21 @@ function processMeme(memeInfo) {
     resizeCanvas();
 
     // Add meme template as canvas background
-    fabric.Image.fromURL(`${memeInfo.url}`, function (meme) {
-        canvas.setBackgroundImage(meme, canvas.renderAll.bind(canvas));
+    fabric.Image.fromURL(`${memeInfo.url}`, function (meme, isError) {
+        if (canvas !== editorCanvas) {
+            return;
+        }
+        if (isError) {
+            backgroundLoadFailed = true;
+            showAlert('Error! The meme template could not be loaded.');
+            updateGenerateButton();
+            return;
+        }
+        editorCanvas.setBackgroundImage(meme, function () {
+            backgroundReady = true;
+            editorCanvas.renderAll();
+            updateGenerateButton();
+        });
     }, {
         crossOrigin: "anonymous"
     });
@@ -322,27 +360,51 @@ function processMeme(memeInfo) {
     // Event: Add new image
     $('#add-image').off('input').on('input', function () {
         const file = this.files[0];
-        const fileType = file['type'];
         $('#add-image').val('');
 
-        if (!isImage(fileType)) {
+        if (!file) {
+            return;
+        }
+
+        if (!isImage(file.type)) {
             showAlert('Error! Invalid Image');
             return;
         }
 
+        pendingAssetLoads++;
+        updateGenerateButton();
+
+        function finishImageLoad() {
+            pendingAssetLoads--;
+            updateGenerateButton();
+        }
+
         const reader = new FileReader();
         reader.onload = function () {
-            var image = new Image();
-            image.src = reader.result;
-            image.onload = function () {
-                fabric.Image.fromURL(reader.result, function (image) {
-                    image.scaleToWidth(canvas.width / 2);
-                    canvas.add(image).setActiveObject(image);
-                    $('#scale').val(image.scaleX);
-                }, {
-                    opacity: parseFloat($('#opacity').val()) / 100
-                });
-            }
+            fabric.Image.fromURL(reader.result, function (image, isError) {
+                if (canvas !== editorCanvas) {
+                    return;
+                }
+                if (isError) {
+                    showAlert('Error! The selected image could not be decoded.');
+                    finishImageLoad();
+                    return;
+                }
+                image.scaleToWidth(editorCanvas.width / 2);
+                editorCanvas.add(image).setActiveObject(image);
+                $('#scale').val(image.scaleX);
+                finishImageLoad();
+            }, {
+                opacity: parseFloat($('#opacity').val()) / 100
+            });
+        }
+        reader.onerror = function () {
+            showAlert('Error! The selected image could not be read.');
+            finishImageLoad();
+        }
+        reader.onabort = function () {
+            showAlert('Image loading was cancelled.');
+            finishImageLoad();
         }
         reader.readAsDataURL(file);
 
@@ -423,15 +485,42 @@ function processMeme(memeInfo) {
     });
 
     $('#generate-meme').off('click').on('click', function () {
-        var dataURL = canvas.toDataURL({
-            format: 'png',
-        });
+        if (!backgroundReady || pendingAssetLoads > 0 || isExporting) {
+            return;
+        }
 
-        var link = document.createElement('a');
-        link.href = dataURL;
-        link.download = createImgName();
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        isExporting = true;
+        updateGenerateButton();
+
+        try {
+            const exportCanvas = editorCanvas.toCanvasElement(1);
+            exportCanvas.toBlob(function (blob) {
+                if (!blob) {
+                    showAlert('Error! The meme could not be generated.');
+                }
+                else {
+                    const objectUrl = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.href = objectUrl;
+                    link.download = createImgName();
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    setTimeout(function () {
+                        URL.revokeObjectURL(objectUrl);
+                    }, 1000);
+                }
+
+                isExporting = false;
+                if (canvas === editorCanvas) {
+                    updateGenerateButton();
+                }
+            }, 'image/png');
+        }
+        catch (error) {
+            isExporting = false;
+            updateGenerateButton();
+            showAlert('Error! The meme could not be generated.');
+        }
     });
 }

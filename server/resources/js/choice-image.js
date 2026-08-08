@@ -25,13 +25,16 @@ $(function () {
     // Event: Upload local image
     $('#meme-input').on('change', function () {
         const file = this.files[0];
-        const fileType = file['type'];
 
         // Reset file input
         $('#meme-input').val('');
 
+        if (!file) {
+            return;
+        }
+
         // Validate this is image
-        if (!isImage(fileType)) {
+        if (!isImage(file.type)) {
             showAlert('Error! Invalid Image');
             return;
         }
@@ -39,7 +42,6 @@ $(function () {
         const reader = new FileReader();
         reader.onload = function () {
             var meme = new Image();
-            meme.src = reader.result;
             meme.onload = function () {
                 var imgInfo = {
                     url: reader.result,
@@ -48,6 +50,16 @@ $(function () {
                 }
                 $('.choice-section').trigger('choice-done', imgInfo);
             }
+            meme.onerror = function () {
+                showAlert('Error! The selected image could not be decoded.');
+            }
+            meme.src = reader.result;
+        }
+        reader.onerror = function () {
+            showAlert('Error! The selected image could not be read.');
+        }
+        reader.onabort = function () {
+            showAlert('Image loading was cancelled.');
         }
         reader.readAsDataURL(file);
     });
