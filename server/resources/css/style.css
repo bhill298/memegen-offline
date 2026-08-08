@@ -129,6 +129,24 @@ body {
     padding: 0.65rem 0.75rem 0.75rem;
 }
 
+.animation-quality-controls {
+    align-items: center;
+}
+
+.animation-quality-controls:not([hidden]) {
+    display: flex;
+}
+
+#animation-quality {
+    width: auto;
+}
+
+.animation-quality-help {
+    color: #555;
+    cursor: help;
+    line-height: 1;
+}
+
 .animation-timeline-readout {
     display: flex;
     flex-wrap: wrap;

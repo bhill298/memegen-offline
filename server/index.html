@@ -238,7 +238,20 @@
                         </div>
                     </div>
                 </div>
-                <div class="mb-4 mt-3">
+                <div class="mb-4 mt-3 d-flex align-items-center flex-wrap">
+                    <div id="animation-quality-controls" class="animation-quality-controls mr-2" hidden>
+                        <label for="animation-quality" class="mb-0 mr-1">Quality</label>
+                        <select id="animation-quality" class="form-control form-control-sm">
+                            <option value="low">Low</option>
+                            <option value="balanced">Balanced</option>
+                            <option value="full" selected>Full</option>
+                        </select>
+                        <span id="animation-quality-help" class="animation-quality-help ml-1"
+                            tabindex="0" role="img" aria-label="Quality information"
+                            title="Lower quality reduces file size and encoding time. For APNG, it reduces file size only.">
+                            <i class="fas fa-info-circle" aria-hidden="true"></i>
+                        </span>
+                    </div>
                     <button class="btn btn-success" id="generate-meme">Generate Meme</button>
                 </div>
             </div>

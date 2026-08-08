@@ -50,6 +50,10 @@ async function handle(type, data) {
             frames: [],
             delays: [],
             timestamp: 0,
+            config: {
+                lossless: data.webpLossless,
+                quality: data.webpQuality,
+            },
         };
         return { data: true };
     }
@@ -61,7 +65,7 @@ async function handle(type, data) {
             // wasm-webp names this field "duration", but libwebp consumes it
             // as the frame's cumulative end timestamp.
             duration: encoderState.timestamp,
-            config: { lossless: 1, quality: 100 },
+            config: encoderState.config,
         });
         return { data: true };
     }

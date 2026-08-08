@@ -67,6 +67,41 @@ function createAnimatedImageSizePlan(width, height) {
     };
 }
 
+function resolveAnimationQualityProfile(format, quality, sizePlan) {
+    const selectedQuality = ['low', 'balanced', 'full'].includes(quality)
+        ? quality : 'full';
+    let scale = 1;
+    let gifColors = 255;
+    let webpLossless = 1;
+    let webpQuality = 100;
+    let apngColors = 0;
+
+    if (format === 'gif') {
+        if (selectedQuality === 'balanced') scale = 2 / 3;
+        if (selectedQuality === 'low') {
+            scale = 0.5;
+            gifColors = 64;
+        }
+    }
+    else if (format === 'webp' && selectedQuality !== 'full') {
+        webpLossless = 0;
+        webpQuality = selectedQuality === 'balanced' ? 90 : 70;
+    }
+    else if (format === 'apng' && selectedQuality !== 'full') {
+        apngColors = selectedQuality === 'balanced' ? 256 : 128;
+    }
+
+    return {
+        quality: selectedQuality,
+        outputWidth: Math.max(1, Math.floor(sizePlan.outputWidth * scale)),
+        outputHeight: Math.max(1, Math.floor(sizePlan.outputHeight * scale)),
+        gifColors,
+        webpLossless,
+        webpQuality,
+        apngColors,
+    };
+}
+
 async function readAnimatedSource(imgInfo, label) {
     let buffer;
     if (imgInfo.sourceFile) {
@@ -306,18 +341,25 @@ function createAnimationFrameDecoder(animationInfo) {
     };
 }
 
-function createAnimationEncoder(animationInfo, width, height) {
+function createAnimationEncoder(animationInfo, width, height, qualityProfile) {
     const client = createAnimationWorkerClient(animationInfo);
     let initialized = false;
     return {
         initialize: async function () {
             const metadata = animationInfo.metadata;
-            const data = { width, height, loopCount: metadata.loopCount || 0 };
+            const data = {
+                width,
+                height,
+                loopCount: metadata.loopCount || 0,
+                webpLossless: qualityProfile.webpLossless,
+                webpQuality: qualityProfile.webpQuality,
+                apngColors: qualityProfile.apngColors,
+            };
             if (animationInfo.format === 'gif') {
                 Object.assign(data, {
                     version: '89a',
                     looped: metadata.looped === true,
-                    maxColors: 255,
+                    maxColors: qualityProfile.gifColors,
                 });
             }
             await client.call('encoder:init', data);

@@ -66,6 +66,7 @@ async function handle(type, data) {
             loopCount: data.loopCount,
             frames: [],
             delays: [],
+            colors: data.apngColors,
         };
         return { data: true };
     }
@@ -79,7 +80,7 @@ async function handle(type, data) {
             encoderState.frames,
             encoderState.width,
             encoderState.height,
-            0,
+            encoderState.colors,
             encoderState.delays
         );
         buffer = setApngAnimationMetadata(

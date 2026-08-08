@@ -12,6 +12,11 @@ function solidFrame(width, height, red, green, blue) {
     pixels[index + 2] = blue;
     pixels[index + 3] = 255;
   }
+  for (let y = Math.floor(height * 3 / 4); y < height; y++) {
+    for (let x = Math.floor(width * 3 / 4); x < width; x++) {
+      pixels[(y * width + x) * 4 + 3] = 0;
+    }
+  }
   return pixels;
 }
 
@@ -103,6 +108,11 @@ async function animatedApngBuffer(page) {
         pixels[index + 2] = blue;
         pixels[index + 3] = 255;
       }
+      for (let y = Math.floor(height * 3 / 4); y < height; y++) {
+        for (let x = Math.floor(width * 3 / 4); x < width; x++) {
+          pixels[(y * width + x) * 4 + 3] = 0;
+        }
+      }
       return pixels.buffer;
     };
     const output = new Uint8Array(
@@ -146,6 +156,11 @@ async function animatedWebpBuffer(page) {
         pixels[index + 1] = green;
         pixels[index + 2] = blue;
         pixels[index + 3] = 255;
+      }
+      for (let y = Math.floor(height * 3 / 4); y < height; y++) {
+        for (let x = Math.floor(width * 3 / 4); x < width; x++) {
+          pixels[(y * width + x) * 4 + 3] = 0;
+        }
       }
       return pixels;
     };
@@ -216,6 +231,115 @@ test('can repeatedly enter and leave the editor without retaining a canvas', asy
   await expect(page.locator('.canvas-container')).toHaveCount(1);
   expect(pageErrors).toEqual([]);
 });
+
+test('quality controls appear only for animations and explain the APNG exception', async ({ page }) => {
+  await openEditor(page);
+  await expect(page.locator('#animation-quality-controls')).toBeHidden();
+
+  await page.locator('.back-btn .btn').click();
+  await openGifEditor(page);
+  await expect(page.locator('#animation-quality-controls')).toBeVisible();
+  await expect(page.locator('#animation-quality')).toHaveValue('full');
+  await expect(page.locator('#animation-quality-help')).toHaveAttribute(
+    'title',
+    'Lower quality reduces file size and encoding time. For APNG, it reduces file size only.'
+  );
+});
+
+for (const format of ['GIF', 'APNG', 'WebP']) {
+  for (const quality of ['balanced', 'low']) {
+    test(`${format} ${quality} quality preserves animation metadata`, async ({ page }) => {
+      if (format === 'GIF') {
+        await openGifEditor(page);
+      }
+      else {
+        await openAdditionalAnimationEditor(page, format);
+      }
+      await page.locator('#animation-quality').selectOption(quality);
+
+      const downloadPromise = page.waitForEvent('download');
+      await page.locator('#generate-meme').click();
+      const download = await downloadPromise;
+      const stream = await download.createReadStream();
+      const chunks = [];
+      for await (const chunk of stream) chunks.push(chunk);
+      const output = Buffer.concat(chunks);
+
+      if (format === 'GIF') {
+        const bytes = output.buffer.slice(output.byteOffset, output.byteOffset + output.byteLength);
+        const metadata = decodeGif(bytes);
+        const frames = decodeGifFrames(bytes, { gif: metadata });
+        expect({
+          width: metadata.width,
+          height: metadata.height,
+          delays: frames.map(frame => frame.delay),
+          frameCount: frames.length,
+          looped: metadata.looped,
+          hasTransparency: frames.some(frame =>
+            frame.data.some((value, index) => index % 4 === 3 && value === 0)
+          ),
+        }).toEqual({
+          width: quality === 'balanced' ? 42 : 32,
+          height: quality === 'balanced' ? 32 : 24,
+          delays: [100, 200],
+          frameCount: 2,
+          looped: true,
+          hasTransparency: true,
+        });
+        return;
+      }
+
+      const decoded = await page.evaluate(async ({ format, bytes }) => {
+        if (format === 'APNG') {
+          const image = UPNG.decode(new Uint8Array(bytes).buffer);
+          const frames = UPNG.toRGBA8(image);
+          return {
+            width: image.width,
+            height: image.height,
+            delays: image.frames.map(frame => frame.delay),
+            frameCount: frames.length,
+            loopCount: image.tabs.acTL.num_plays,
+            hasTransparency: frames.some(frame =>
+              new Uint8Array(frame).some((value, index) => index % 4 === 3 && value === 0)
+            ),
+          };
+        }
+        const { decodeAnimation } = await import('/vendors/wasm-webp/index.js');
+        const data = new Uint8Array(bytes);
+        const frames = await decodeAnimation(data, true);
+        const view = new DataView(data.buffer);
+        let loopCount;
+        for (let offset = 12; offset + 8 <= data.length;) {
+          const length = view.getUint32(offset + 4, true);
+          if (String.fromCharCode(...data.subarray(offset, offset + 4)) === 'ANIM') {
+            loopCount = view.getUint16(offset + 12, true);
+            break;
+          }
+          offset += 8 + length + (length & 1);
+        }
+        return {
+          width: frames[0].width,
+          height: frames[0].height,
+          delays: frames.map(frame => frame.duration),
+          frameCount: frames.length,
+          loopCount,
+          hasTransparency: frames.some(frame =>
+            frame.data.some((value, index) => index % 4 === 3 && value === 0)
+          ),
+        };
+      }, { format, bytes: Array.from(output) });
+
+      expect(decoded).toEqual({
+        width: 32,
+        height: 24,
+        delays: [100, 200],
+        frameCount: 2,
+        loopCount: 3,
+        hasTransparency: true,
+      });
+    });
+  }
+}
 
 test('animation aliases find GIF, WebP, and APNG gallery entries', async ({ page }) => {
   await page.goto('/');
@@ -359,6 +483,19 @@ test('GIF export preserves frames and timing and applies one overlay to every fr
   await page.locator('#add-text').click();
   await waitForHistory(page);
 
+  const labelsPromise = page.evaluate(() => new Promise(resolve => {
+    const labels = [];
+    const button = document.querySelector('#generate-meme');
+    const observer = new MutationObserver(() => {
+      const label = button.textContent.trim();
+      if (labels.at(-1) !== label) labels.push(label);
+      if (label === 'Generate GIF' && labels.some(value => value.startsWith('Encoding GIF'))) {
+        observer.disconnect();
+        resolve(labels);
+      }
+    });
+    observer.observe(button, { childList: true, characterData: true, subtree: true });
+  }));
   const pageCount = page.context().pages().length;
   const downloadPromise = page.waitForEvent('download');
   await page.locator('#generate-meme').click();
@@ -374,12 +511,19 @@ test('GIF export preserves frames and timing and applies one overlay to every fr
   );
   const metadata = decodeGif(exactOutput);
   const frames = decodeGifFrames(exactOutput, { gif: metadata });
+  const labels = await labelsPromise;
 
   expect(metadata.width).toBe(64);
   expect(metadata.height).toBe(48);
   expect(metadata.frames).toHaveLength(2);
   expect(frames.map(frame => frame.delay)).toEqual([100, 200]);
   expect(metadata.looped).toBe(true);
+  expect(frames.some(frame =>
+    frame.data.some((value, index) => index % 4 === 3 && value === 0)
+  )).toBe(true);
+  expect(labels.some(label => /^Preparing GIF\.\.\. \d+\/2$/.test(label))).toBe(true);
+  expect(labels).toContain('Encoding GIF...');
+  expect(labels.some(label => label.startsWith('Finalizing'))).toBe(false);
   for (const frame of frames) {
     const colors = new Set();
     for (let index = 0; index < frame.data.length; index += 4) {
@@ -455,6 +599,9 @@ for (const format of ['APNG', 'WebP']) {
           frameCount: frames.length,
           loopCount: image.tabs.acTL.num_plays,
           firstFrameColors: new Set(Array.from(new Uint32Array(frames[0]))).size,
+          hasTransparency: frames.some(frame =>
+            new Uint8Array(frame).some((value, index) => index % 4 === 3 && value === 0)
+          ),
         };
       }
       const { decodeAnimation } = await import('/vendors/wasm-webp/index.js');
@@ -477,11 +624,15 @@ for (const format of ['APNG', 'WebP']) {
         frameCount: frames.length,
         loopCount,
         firstFrameColors: new Set(Array.from(new Uint32Array(frames[0].data.buffer))).size,
+        hasTransparency: frames.some(frame =>
+          frame.data.some((value, index) => index % 4 === 3 && value === 0)
+        ),
       };
     }, { format, bytes: Array.from(output) });
 
     expect(decoded).toMatchObject({
       width: 32, height: 24, delays: [100, 200], frameCount: 2, loopCount: 3,
+      hasTransparency: true,
     });
     expect(decoded.firstFrameColors).toBeGreaterThan(1);
     expect(pageErrors).toEqual([]);
@@ -584,9 +735,9 @@ test('animated export applies each segment only within its frame range', async (
     return colors.size;
   });
 
-  expect(colorCounts.slice(0, 2)).toEqual([1, 1]);
-  expect(colorCounts[2]).toBeGreaterThan(1);
-  expect(colorCounts[3]).toBeGreaterThan(1);
+  expect(colorCounts[0]).toBe(colorCounts[1]);
+  expect(colorCounts[2]).toBeGreaterThan(colorCounts[0]);
+  expect(colorCounts[3]).toBeGreaterThan(colorCounts[0]);
 });
 
 test('added image overlays remain local to their animation segment', async ({ page }) => {

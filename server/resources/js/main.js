@@ -100,6 +100,8 @@ function processMeme(memeInfo) {
     const $animationTimeline = $('#animation-timeline');
     const $animationSlider = $('#animation-frame-slider');
     const $animationSplit = $('#animation-split');
+    const $animationQualityControls = $('#animation-quality-controls');
+    const $animationQuality = $('#animation-quality');
     let animationFrames;
     let animationFramePlayer;
     let activeAnimationDecoder;
@@ -137,10 +139,18 @@ function processMeme(memeInfo) {
             .prop('disabled', !backgroundReady || pendingAssetLoads > 0 || isExporting)
             .attr('aria-busy', !backgroundReady || pendingAssetLoads > 0 || isExporting)
             .text(label);
+        $animationQuality.prop(
+            'disabled', !animationInfo || !backgroundReady || pendingAssetLoads > 0 || isExporting
+        );
     }
 
     updateGenerateButton();
     $animationTimeline.attr('hidden', true);
+    $animationQualityControls.attr('hidden', true);
+    $animationQuality.val('full');
+    if (animationInfo) {
+        $animationQualityControls.removeAttr('hidden');
+    }
 
     function updateHistoryButtons() {
         $('#canvas-undo').prop('disabled', restoringHistory || historyIndex <= 0);
@@ -476,6 +486,8 @@ function processMeme(memeInfo) {
         animationFrames = undefined;
         $animationSlider.off('input');
         $animationSplit.off('click');
+        $animationQualityControls.attr('hidden', true);
+        $animationQuality.val('full');
         $('#animation-segment-markers').empty();
         $animationTimeline.attr('hidden', true);
         editorCanvas.dispose();
@@ -1045,20 +1057,24 @@ function processMeme(memeInfo) {
     async function exportAnimatedImage() {
         animationFramePlayer.pause();
         flushScheduledHistory();
+        const qualityProfile = resolveAnimationQualityProfile(
+            animationInfo.format, $animationQuality.val(), sizePlan
+        );
         const segmentOverlays = await renderAnimationSegmentOverlays();
         const sourceCanvas = document.createElement('canvas');
         sourceCanvas.width = animationInfo.metadata.width;
         sourceCanvas.height = animationInfo.metadata.height;
         const sourceContext = sourceCanvas.getContext('2d');
         const outputCanvas = document.createElement('canvas');
-        outputCanvas.width = sizePlan.outputWidth;
-        outputCanvas.height = sizePlan.outputHeight;
+        outputCanvas.width = qualityProfile.outputWidth;
+        outputCanvas.height = qualityProfile.outputHeight;
         const outputContext = outputCanvas.getContext('2d', { willReadFrequently: true });
         outputContext.imageSmoothingEnabled = true;
         outputContext.imageSmoothingQuality = 'high';
 
         activeAnimationEncoder = createAnimationEncoder(
-            animationInfo, sizePlan.outputWidth, sizePlan.outputHeight
+            animationInfo, qualityProfile.outputWidth, qualityProfile.outputHeight,
+            qualityProfile
         );
         await activeAnimationEncoder.initialize();
 
@@ -1079,17 +1095,20 @@ function processMeme(memeInfo) {
                 animationInfo.timeline.segments[segmentIndex + 1].startFrame <= frameIndex) {
                 segmentIndex++;
             }
-            outputContext.drawImage(segmentOverlays[segmentIndex], 0, 0);
+            outputContext.drawImage(
+                segmentOverlays[segmentIndex], 0, 0,
+                outputCanvas.width, outputCanvas.height
+            );
             const pixels = outputContext.getImageData(
                 0, 0, outputCanvas.width, outputCanvas.height
             ).data;
-            animationExportLabel = `Generating ${animationInfo.formatLabel}... ` +
+            animationExportLabel = `Preparing ${animationInfo.formatLabel}... ` +
                 `${frameIndex + 1}/${animationFrames.length}`;
             updateGenerateButton();
             await activeAnimationEncoder.addFrame(pixels, frame.delay);
         }
 
-        animationExportLabel = `Finalizing ${animationInfo.formatLabel}...`;
+        animationExportLabel = `Encoding ${animationInfo.formatLabel}...`;
         updateGenerateButton();
         const blob = await activeAnimationEncoder.finish();
         if (!editorDestroyed && canvas === editorCanvas) {
