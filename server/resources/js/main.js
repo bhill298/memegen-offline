@@ -96,6 +96,15 @@ function processMeme(memeInfo) {
     let backgroundLoadFailed = false;
     let pendingAssetLoads = 0;
     let isExporting = false;
+    const gifInfo = memeInfo.gifInfo;
+    const $gifStatus = $('#gif-status');
+    let gifFrames;
+    let gifFramePlayer;
+    let activeGifDecoder;
+    let activeGifEncoder;
+    let gifExportLabel = '';
+    let editorDestroyed = false;
+    editorCanvas.gifTimeline = gifInfo ? gifInfo.timeline : undefined;
     const historyLimit = 50;
     const historyStates = [];
     const historyImageSources = {};
@@ -106,7 +115,7 @@ function processMeme(memeInfo) {
     var hoverAnimationRequestId;
 
     function updateGenerateButton() {
-        let label = 'Generate Meme';
+        let label = gifInfo ? 'Generate GIF' : 'Generate Meme';
         if (!backgroundReady) {
             label = backgroundLoadFailed ? 'Template Load Failed' : 'Loading Template...';
         }
@@ -114,7 +123,7 @@ function processMeme(memeInfo) {
             label = 'Loading Image...';
         }
         else if (isExporting) {
-            label = 'Generating...';
+            label = gifExportLabel || (gifInfo ? 'Generating GIF...' : 'Generating...');
         }
         $generateButton
             .prop('disabled', !backgroundReady || pendingAssetLoads > 0 || isExporting)
@@ -123,6 +132,12 @@ function processMeme(memeInfo) {
     }
 
     updateGenerateButton();
+    if (gifInfo) {
+        $gifStatus.removeAttr('hidden').text('Loading animated GIF...');
+    }
+    else {
+        $gifStatus.attr('hidden', true).empty();
+    }
 
     function updateHistoryButtons() {
         $('#canvas-undo').prop('disabled', restoringHistory || historyIndex <= 0);
@@ -244,6 +259,7 @@ function processMeme(memeInfo) {
     recordHistoryState();
 
     destroyMemeEditor = function () {
+        editorDestroyed = true;
         $(window).off('.memeEditor');
         if (historyTimeout !== undefined) {
             clearTimeout(historyTimeout);
@@ -252,6 +268,19 @@ function processMeme(memeInfo) {
         if (hoverAnimationRequestId !== undefined) {
             cancelAnimationFrame(hoverAnimationRequestId);
         }
+        if (gifFramePlayer) {
+            gifFramePlayer.destroy();
+        }
+        if (activeGifDecoder) {
+            activeGifDecoder.terminate();
+            activeGifDecoder = undefined;
+        }
+        if (activeGifEncoder) {
+            activeGifEncoder.terminate();
+            activeGifEncoder = undefined;
+        }
+        gifFrames = undefined;
+        $gifStatus.attr('hidden', true).empty();
         editorCanvas.dispose();
         $('#meme-canvas').remove();
         if (canvas === editorCanvas) {
@@ -465,52 +494,119 @@ function processMeme(memeInfo) {
 
     resizeCanvas();
 
-    // Add meme template as canvas background
-    fabric.Image.fromURL(`${memeInfo.url}`, function (meme, isError) {
-        if (canvas !== editorCanvas) {
-            return;
-        }
-        if (isError) {
-            backgroundLoadFailed = true;
-            showAlert('Error! The meme template could not be loaded.');
-            updateGenerateButton();
-            return;
-        }
-        try {
-            if (sizePlan.outputWasReduced) {
-                const resizedTemplate = document.createElement('canvas');
-                resizedTemplate.width = sizePlan.outputWidth;
-                resizedTemplate.height = sizePlan.outputHeight;
-                resizedTemplate.getContext('2d').drawImage(
-                    meme.getElement(), 0, 0, sizePlan.outputWidth, sizePlan.outputHeight
-                );
-                meme.setElement(resizedTemplate);
+    function reportBackgroundLoadFailure(message) {
+        backgroundLoadFailed = true;
+        showAlert(message);
+        updateGenerateButton();
+    }
+
+    function loadStaticBackground() {
+        fabric.Image.fromURL(`${memeInfo.url}`, function (meme, isError) {
+            if (canvas !== editorCanvas) {
+                return;
             }
-            meme.set({
-                scaleX: sizePlan.workingWidth / meme.width,
-                scaleY: sizePlan.workingHeight / meme.height,
+            if (isError) {
+                reportBackgroundLoadFailure('Error! The meme template could not be loaded.');
+                return;
+            }
+            try {
+                if (sizePlan.outputWasReduced) {
+                    const resizedTemplate = document.createElement('canvas');
+                    resizedTemplate.width = sizePlan.outputWidth;
+                    resizedTemplate.height = sizePlan.outputHeight;
+                    resizedTemplate.getContext('2d').drawImage(
+                        meme.getElement(), 0, 0, sizePlan.outputWidth, sizePlan.outputHeight
+                    );
+                    meme.setElement(resizedTemplate);
+                }
+                meme.set({
+                    scaleX: sizePlan.workingWidth / meme.width,
+                    scaleY: sizePlan.workingHeight / meme.height,
+                });
+            }
+            catch (error) {
+                reportBackgroundLoadFailure('Error! The meme template was too large to prepare.');
+                return;
+            }
+            editorCanvas.setBackgroundImage(meme, function () {
+                backgroundReady = true;
+                editorCanvas.renderAll();
+                updateGenerateButton();
+                if (sizePlan.outputWasReduced) {
+                    showAlert(
+                        `Large image: output will be resized from ${sizePlan.sourceWidth} x ${sizePlan.sourceHeight} ` +
+                        `to ${sizePlan.outputWidth} x ${sizePlan.outputHeight}.`
+                    );
+                }
+            });
+        }, {
+            crossOrigin: "anonymous"
+        });
+    }
+
+    async function loadGifBackground() {
+        try {
+            activeGifDecoder = createGifFrameDecoder(gifInfo);
+            const frames = await activeGifDecoder.promise;
+            activeGifDecoder = undefined;
+            if (editorDestroyed || canvas !== editorCanvas) {
+                return;
+            }
+            gifFrames = frames;
+            gifInfo.buffer = undefined;
+            const frameCanvas = document.createElement('canvas');
+            frameCanvas.width = gifInfo.metadata.width;
+            frameCanvas.height = gifInfo.metadata.height;
+            const frameContext = frameCanvas.getContext('2d');
+            const meme = new fabric.Image(frameCanvas, {
+                scaleX: sizePlan.workingWidth / frameCanvas.width,
+                scaleY: sizePlan.workingHeight / frameCanvas.height,
+                objectCaching: false,
+            });
+
+            function displayFrame(frame, frameIndex) {
+                frameContext.putImageData(
+                    new ImageData(frame.data, frame.width, frame.height), 0, 0
+                );
+                meme.dirty = true;
+                gifInfo.timeline.currentFrame = frameIndex;
+                editorCanvas.requestRenderAll();
+            }
+
+            gifFramePlayer = createGifFramePlayer(frames, displayFrame);
+            editorCanvas.setBackgroundImage(meme, function () {
+                if (editorDestroyed || canvas !== editorCanvas) {
+                    return;
+                }
+                backgroundReady = true;
+                editorCanvas.renderAll();
+                updateGenerateButton();
+                $gifStatus.text(
+                    `${gifInfo.frameCount} frames · ${formatGifDuration(gifInfo.duration)}`
+                );
+                gifFramePlayer.play();
+                if (sizePlan.outputWasReduced) {
+                    showAlert(
+                        `Large GIF: output will be resized from ${sizePlan.sourceWidth} x ` +
+                        `${sizePlan.sourceHeight} to ${sizePlan.outputWidth} x ${sizePlan.outputHeight}.`
+                    );
+                }
             });
         }
         catch (error) {
-            backgroundLoadFailed = true;
-            showAlert('Error! The meme template was too large to prepare.');
-            updateGenerateButton();
-            return;
-        }
-        editorCanvas.setBackgroundImage(meme, function () {
-            backgroundReady = true;
-            editorCanvas.renderAll();
-            updateGenerateButton();
-            if (sizePlan.outputWasReduced) {
-                showAlert(
-                    `Large image: output will be resized from ${sizePlan.sourceWidth} x ${sizePlan.sourceHeight} ` +
-                    `to ${sizePlan.outputWidth} x ${sizePlan.outputHeight}.`
-                );
+            if (!editorDestroyed && canvas === editorCanvas) {
+                reportBackgroundLoadFailure(`Error! ${error.message}`);
+                $gifStatus.text('GIF load failed');
             }
-        });
-    }, {
-        crossOrigin: "anonymous"
-    });
+        }
+    }
+
+    if (gifInfo) {
+        loadGifBackground();
+    }
+    else {
+        loadStaticBackground();
+    }
 
     // Event: Add new text
     $('#add-text').off('click').on('click', function () {
@@ -698,6 +794,83 @@ function processMeme(memeInfo) {
         }
     });
 
+    function downloadGeneratedBlob(blob, extension) {
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = objectUrl;
+        link.download = createImgName().replace(/\.png$/, extension);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(function () {
+            URL.revokeObjectURL(objectUrl);
+        }, 1000);
+    }
+
+    function renderGifSegmentOverlay() {
+        const backgroundImage = editorCanvas.backgroundImage;
+        editorCanvas.backgroundImage = null;
+        try {
+            editorCanvas.renderAll();
+            gifInfo.timeline.segments[0].editorState = editorCanvas.toJSON();
+            return editorCanvas.toCanvasElement(sizePlan.exportMultiplier);
+        }
+        finally {
+            editorCanvas.backgroundImage = backgroundImage;
+            editorCanvas.renderAll();
+        }
+    }
+
+    async function exportAnimatedGif() {
+        gifFramePlayer.pause();
+        const overlayCanvas = renderGifSegmentOverlay();
+        const sourceCanvas = document.createElement('canvas');
+        sourceCanvas.width = gifInfo.metadata.width;
+        sourceCanvas.height = gifInfo.metadata.height;
+        const sourceContext = sourceCanvas.getContext('2d');
+        const outputCanvas = document.createElement('canvas');
+        outputCanvas.width = sizePlan.outputWidth;
+        outputCanvas.height = sizePlan.outputHeight;
+        const outputContext = outputCanvas.getContext('2d', { willReadFrequently: true });
+        outputContext.imageSmoothingEnabled = true;
+        outputContext.imageSmoothingQuality = 'high';
+
+        activeGifEncoder = createGifEncoder(
+            gifInfo, sizePlan.outputWidth, sizePlan.outputHeight
+        );
+        await activeGifEncoder.initialize();
+
+        for (let frameIndex = 0; frameIndex < gifFrames.length; frameIndex++) {
+            if (editorDestroyed || canvas !== editorCanvas) {
+                throw new Error('The GIF operation was cancelled.');
+            }
+            const frame = gifFrames[frameIndex];
+            sourceContext.putImageData(
+                new ImageData(frame.data, frame.width, frame.height), 0, 0
+            );
+            outputContext.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
+            outputContext.drawImage(
+                sourceCanvas, 0, 0, outputCanvas.width, outputCanvas.height
+            );
+            outputContext.drawImage(overlayCanvas, 0, 0);
+            const pixels = outputContext.getImageData(
+                0, 0, outputCanvas.width, outputCanvas.height
+            ).data;
+            gifExportLabel = `Generating GIF... ${frameIndex + 1}/${gifFrames.length}`;
+            $gifStatus.text(gifExportLabel);
+            updateGenerateButton();
+            await activeGifEncoder.addFrame(pixels, frame.delay);
+        }
+
+        gifExportLabel = 'Finalizing GIF...';
+        $gifStatus.text(gifExportLabel);
+        updateGenerateButton();
+        const blob = await activeGifEncoder.finish();
+        if (!editorDestroyed && canvas === editorCanvas) {
+            downloadGeneratedBlob(blob, '.gif');
+        }
+    }
+
     $('#generate-meme').off('click').on('click', function () {
         if (!backgroundReady || pendingAssetLoads > 0 || isExporting) {
             return;
@@ -706,6 +879,29 @@ function processMeme(memeInfo) {
         isExporting = true;
         updateGenerateButton();
 
+        if (gifInfo) {
+            exportAnimatedGif().catch(function (error) {
+                if (!editorDestroyed && canvas === editorCanvas) {
+                    showAlert(`Error! ${error.message || 'The GIF could not be generated.'}`);
+                }
+            }).finally(function () {
+                if (activeGifEncoder) {
+                    activeGifEncoder.terminate();
+                    activeGifEncoder = undefined;
+                }
+                gifExportLabel = '';
+                isExporting = false;
+                if (!editorDestroyed && canvas === editorCanvas) {
+                    $gifStatus.text(
+                        `${gifInfo.frameCount} frames · ${formatGifDuration(gifInfo.duration)}`
+                    );
+                    gifFramePlayer.play();
+                    updateGenerateButton();
+                }
+            });
+            return;
+        }
+
         try {
             const exportCanvas = editorCanvas.toCanvasElement(sizePlan.exportMultiplier);
             exportCanvas.toBlob(function (blob) {
@@ -713,16 +909,7 @@ function processMeme(memeInfo) {
                     showAlert('Error! The meme could not be generated.');
                 }
                 else {
-                    const objectUrl = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = objectUrl;
-                    link.download = createImgName();
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    setTimeout(function () {
-                        URL.revokeObjectURL(objectUrl);
-                    }, 1000);
+                    downloadGeneratedBlob(blob, '.png');
                 }
 
                 isExporting = false;

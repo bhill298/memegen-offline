@@ -123,6 +123,12 @@ body {
     border: 1px solid #cecece;
 }
 
+.gif-status {
+    color: #666;
+    font-size: 0.875rem;
+    margin-top: 0.4rem;
+}
+
 
 .preview {
     padding-left: 15px;

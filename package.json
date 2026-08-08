@@ -6,6 +6,9 @@
     "test:ui": "playwright test --ui"
   },
   "devDependencies": {
-    "@playwright/test": "1.62.1"
+    "@playwright/test": "1.62.1",
+    "@upng/upng-js": "^2.2.2",
+    "modern-gif": "2.1.0",
+    "wasm-webp": "^0.1.0"
   }
 }

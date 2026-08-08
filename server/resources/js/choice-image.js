@@ -11,6 +11,7 @@ $(function () {
             url: $img.attr('src'),
             height: $img.attr('img-height'),
             width: $img.attr('img-width'),
+            mimeType: $img.attr('src').toLowerCase().endsWith('.gif') ? 'image/gif' : '',
         }
         // need to wait for image to load / don't fire an event while another one is being handled
         if (imgInfo.width === undefined || imgInfo.height === undefined || parseInt(imgInfo.width) <= 0 || parseInt(imgInfo.height) <= 0) {
@@ -47,6 +48,9 @@ $(function () {
                     url: reader.result,
                     height: meme.height,
                     width: meme.width,
+                    mimeType: file.type,
+                    fileName: file.name,
+                    sourceFile: file,
                 }
                 $('.choice-section').trigger('choice-done', imgInfo);
             }
@@ -76,19 +80,25 @@ $(function () {
 
     // Event: Choice was made
     $('.choice-section').on('choice-done', function (e, imgInfo) {
-        const sizePlan = createImageSizePlan(imgInfo.width, imgInfo.height);
-        if (sizePlan.error) {
-            handlingClick = false;
-            showAlert(`Error! ${sizePlan.error}`);
-            return;
-        }
-        imgInfo.sizePlan = sizePlan;
+        handlingClick = true;
+        prepareGifMemeInfo(imgInfo).then(function (preparedInfo) {
+            const sizePlan = preparedInfo.sizePlan || createImageSizePlan(
+                preparedInfo.width, preparedInfo.height
+            );
+            if (sizePlan.error) {
+                throw new Error(sizePlan.error);
+            }
+            preparedInfo.sizePlan = sizePlan;
 
-        $('.choice-section').fadeOut('normal', function () {
-            $('.edit-section').removeClass('d-none').hide().fadeIn();
-            $('.fabric-canvas-wrapper').append(`<canvas id="meme-canvas"></canvas>`);
-            // don't think wrapper to perform this check is necessary
-            tryProcessMeme(imgInfo);
+            $('.choice-section').fadeOut('normal', function () {
+                $('.edit-section').removeClass('d-none').hide().fadeIn();
+                $('.fabric-canvas-wrapper').append(`<canvas id="meme-canvas"></canvas>`);
+                // don't think wrapper to perform this check is necessary
+                tryProcessMeme(preparedInfo);
+            });
+        }).catch(function (error) {
+            handlingClick = false;
+            showAlert(`Error! ${error.message}`);
         });
     });
 

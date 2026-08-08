@@ -26,6 +26,22 @@ Alternatively, you can use a php script to query the images from the server
 this, set `__use_php = true` in `server/resources/js/load-images.js`. You can
 test this with e.g. `php -S localhost:8000`.
 
+## Animated GIFs
+
+Animated GIF templates can be selected from the gallery or uploaded. Text,
+drawings, and added images are applied to every frame, and the result downloads
+as an animated GIF with its source timing and loop behavior. A one-segment
+timeline model is used internally so frame ranges can be added later without
+replacing the GIF export path.
+
+GIF processing runs locally in the browser. The required codec and worker are
+included under `server/vendors`, so end users do not need Node.js, npm, or an
+internet connection. To keep decoding and export from exhausting browser
+memory, animated GIFs are limited to 50 MB, 300 frames, 4096 pixels per source
+dimension, 4 source megapixels, and 40 million decoded pixel-frames. Output is
+preserved at its original resolution when it is at most 2048 pixels per side
+and 2 megapixels; larger accepted GIFs are resized without dropping frames.
+
 ## Browser tests
 
 The Playwright smoke tests require Node.js 20 or newer and exercise the editor
