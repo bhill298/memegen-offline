@@ -29,9 +29,10 @@ test this with e.g. `php -S localhost:8000`.
 ## Animated images
 
 Animated GIF, WebP, and PNG (APNG) templates can be selected from the gallery or
-uploaded. Text, drawings, and added images are applied to every frame. The
-download uses the same format as the template and preserves its source timing
-and loop behavior. Animated templates remain paused in the editor and have a
+uploaded. Text, drawings, and added images are applied to every frame. Output
+defaults to the template's format, but GIF, WebP, and APNG can be selected in
+the editor. Export preserves source timing and loop behavior. Animated
+templates remain paused in the editor and have a
 frame-accurate timeline beneath the image. **Start Changes Here** creates an
 editable segment beginning at the selected frame; each segment keeps its own
 complete text, drawing, and image-overlay state. If no split is created, edits
@@ -46,6 +47,14 @@ dimension, 4 source megapixels, and 40 million decoded pixel-frames. Output is
 preserved at its original resolution when it is at most 2048 pixels per side
 and 2 megapixels; larger accepted animations are resized without dropping
 frames.
+
+### Firefox WebP downloads
+
+Firefox can download a generated WebP and then open it in a new tab instead of
+showing its usual download prompt. Its WebP-specific file action can override
+the general **Always ask you where to save files** preference. To change this,
+open **Settings → General → Files and Applications → Applications**, find
+**WebP Image**, and select **Always ask** or **Save File**.
 
 ## Browser tests
 
