@@ -102,6 +102,8 @@ function processMeme(memeInfo) {
     const $animationSplit = $('#animation-split');
     const $animationQualityControls = $('#animation-quality-controls');
     const $animationQuality = $('#animation-quality');
+    const $animationOutputFormat = $('#animation-output-format');
+    const $animationGifWarning = $('#animation-gif-warning');
     let animationFrames;
     let animationFramePlayer;
     let activeAnimationDecoder;
@@ -124,7 +126,11 @@ function processMeme(memeInfo) {
     }
 
     function updateGenerateButton() {
-        let label = animationInfo ? `Generate ${animationInfo.formatLabel}` : 'Generate Meme';
+        const outputFormat = animationInfo
+            ? ($animationOutputFormat.val() || animationInfo.format) : undefined;
+        const outputFormatLabel = outputFormat
+            ? ANIMATION_FORMATS[outputFormat].label : undefined;
+        let label = animationInfo ? `Generate ${outputFormatLabel}` : 'Generate Meme';
         if (!backgroundReady) {
             label = backgroundLoadFailed ? 'Template Load Failed' : 'Loading Template...';
         }
@@ -133,7 +139,7 @@ function processMeme(memeInfo) {
         }
         else if (isExporting) {
             label = animationExportLabel ||
-                (animationInfo ? `Generating ${animationInfo.formatLabel}...` : 'Generating...');
+                (animationInfo ? `Generating ${outputFormatLabel}...` : 'Generating...');
         }
         $generateButton
             .prop('disabled', !backgroundReady || pendingAssetLoads > 0 || isExporting)
@@ -142,15 +148,39 @@ function processMeme(memeInfo) {
         $animationQuality.prop(
             'disabled', !animationInfo || !backgroundReady || pendingAssetLoads > 0 || isExporting
         );
+        $animationOutputFormat.prop(
+            'disabled', !animationInfo || !backgroundReady || pendingAssetLoads > 0 || isExporting
+        );
     }
 
-    updateGenerateButton();
     $animationTimeline.attr('hidden', true);
     $animationQualityControls.attr('hidden', true);
+    $animationGifWarning.attr('hidden', true);
     $animationQuality.val('full');
     if (animationInfo) {
+        const outputFormats = [animationInfo.format].concat(
+            Object.keys(ANIMATION_FORMATS).filter(format => format !== animationInfo.format)
+        );
+        $animationOutputFormat.empty();
+        outputFormats.forEach(function (format, index) {
+            const label = ANIMATION_FORMATS[format].label +
+                (index === 0 ? ' (same as source)' : '');
+            $('<option></option>').val(format).text(label).appendTo($animationOutputFormat);
+        });
+        $animationOutputFormat.val(animationInfo.format);
         $animationQualityControls.removeAttr('hidden');
     }
+
+    function updateAnimationOutputOptions() {
+        const outputFormat = $animationOutputFormat.val();
+        $animationGifWarning.attr(
+            'hidden', !animationInfo || animationInfo.format === 'gif' || outputFormat !== 'gif'
+        );
+        updateGenerateButton();
+    }
+
+    $animationOutputFormat.off('change').on('change', updateAnimationOutputOptions);
+    updateAnimationOutputOptions();
 
     function updateHistoryButtons() {
         $('#canvas-undo').prop('disabled', restoringHistory || historyIndex <= 0);
@@ -486,7 +516,9 @@ function processMeme(memeInfo) {
         animationFrames = undefined;
         $animationSlider.off('input');
         $animationSplit.off('click');
+        $animationOutputFormat.off('change').empty();
         $animationQualityControls.attr('hidden', true);
+        $animationGifWarning.attr('hidden', true);
         $animationQuality.val('full');
         $('#animation-segment-markers').empty();
         $animationTimeline.attr('hidden', true);
@@ -1057,8 +1089,10 @@ function processMeme(memeInfo) {
     async function exportAnimatedImage() {
         animationFramePlayer.pause();
         flushScheduledHistory();
+        const outputFormat = $animationOutputFormat.val() || animationInfo.format;
+        const outputInfo = ANIMATION_FORMATS[outputFormat];
         const qualityProfile = resolveAnimationQualityProfile(
-            animationInfo.format, $animationQuality.val(), sizePlan
+            outputFormat, $animationQuality.val(), sizePlan
         );
         const segmentOverlays = await renderAnimationSegmentOverlays();
         const sourceCanvas = document.createElement('canvas');
@@ -1073,15 +1107,15 @@ function processMeme(memeInfo) {
         outputContext.imageSmoothingQuality = 'high';
 
         activeAnimationEncoder = createAnimationEncoder(
-            animationInfo, qualityProfile.outputWidth, qualityProfile.outputHeight,
-            qualityProfile
+            animationInfo, outputFormat, qualityProfile.outputWidth,
+            qualityProfile.outputHeight, qualityProfile
         );
         await activeAnimationEncoder.initialize();
 
         let segmentIndex = 0;
         for (let frameIndex = 0; frameIndex < animationFrames.length; frameIndex++) {
             if (editorDestroyed || canvas !== editorCanvas) {
-                throw new Error(`The ${animationInfo.formatLabel} operation was cancelled.`);
+                throw new Error(`The ${outputInfo.label} operation was cancelled.`);
             }
             const frame = animationFrames[frameIndex];
             sourceContext.putImageData(
@@ -1102,17 +1136,17 @@ function processMeme(memeInfo) {
             const pixels = outputContext.getImageData(
                 0, 0, outputCanvas.width, outputCanvas.height
             ).data;
-            animationExportLabel = `Preparing ${animationInfo.formatLabel}... ` +
+            animationExportLabel = `Preparing ${outputInfo.label}... ` +
                 `${frameIndex + 1}/${animationFrames.length}`;
             updateGenerateButton();
             await activeAnimationEncoder.addFrame(pixels, frame.delay);
         }
 
-        animationExportLabel = `Encoding ${animationInfo.formatLabel}...`;
+        animationExportLabel = `Encoding ${outputInfo.label}...`;
         updateGenerateButton();
         const blob = await activeAnimationEncoder.finish();
         if (!editorDestroyed && canvas === editorCanvas) {
-            downloadGeneratedBlob(blob, animationInfo.extension);
+            downloadGeneratedBlob(blob, outputInfo.extension);
         }
     }
 
@@ -1131,8 +1165,7 @@ function processMeme(memeInfo) {
             exportAnimatedImage().catch(function (error) {
                 if (!editorDestroyed && canvas === editorCanvas) {
                     showAlert(
-                        `Error! ${error.message ||
-                            `The ${animationInfo.formatLabel} could not be generated.`}`
+                        `Error! ${error.message || 'The animation could not be generated.'}`
                     );
                 }
             }).finally(function () {

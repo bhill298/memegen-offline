@@ -320,18 +320,20 @@ function createWorkerClient(url, options, label) {
     };
 }
 
-function createAnimationWorkerClient(animationInfo) {
-    if (animationInfo.format === 'gif') {
+function createAnimationWorkerClient(format, formatLabel) {
+    if (format === 'gif') {
         return createWorkerClient(GIF_WORKER_URL, undefined, 'GIF');
     }
-    if (animationInfo.format === 'apng') {
+    if (format === 'apng') {
         return createWorkerClient(APNG_WORKER_URL, undefined, 'APNG');
     }
-    return createWorkerClient(WEBP_WORKER_URL, { type: 'module' }, 'WebP');
+    return createWorkerClient(WEBP_WORKER_URL, { type: 'module' }, formatLabel);
 }
 
 function createAnimationFrameDecoder(animationInfo) {
-    const client = createAnimationWorkerClient(animationInfo);
+    const client = createAnimationWorkerClient(
+        animationInfo.format, animationInfo.formatLabel
+    );
     const bytes = new Uint8Array(animationInfo.buffer.slice(0));
     return {
         promise: client.call('frames:decode', bytes, [bytes.buffer]).finally(function () {
@@ -341,24 +343,31 @@ function createAnimationFrameDecoder(animationInfo) {
     };
 }
 
-function createAnimationEncoder(animationInfo, width, height, qualityProfile) {
-    const client = createAnimationWorkerClient(animationInfo);
+function createAnimationEncoder(
+    animationInfo, outputFormat, width, height, qualityProfile
+) {
+    const outputInfo = ANIMATION_FORMATS[outputFormat];
+    const client = createAnimationWorkerClient(outputFormat, outputInfo.label);
     let initialized = false;
     return {
         initialize: async function () {
             const metadata = animationInfo.metadata;
+            const sourceDoesNotLoop = animationInfo.format === 'gif' &&
+                metadata.looped !== true;
             const data = {
                 width,
                 height,
-                loopCount: metadata.loopCount || 0,
+                loopCount: sourceDoesNotLoop && outputFormat !== 'gif'
+                    ? 1 : metadata.loopCount || 0,
                 webpLossless: qualityProfile.webpLossless,
                 webpQuality: qualityProfile.webpQuality,
                 apngColors: qualityProfile.apngColors,
             };
-            if (animationInfo.format === 'gif') {
+            if (outputFormat === 'gif') {
                 Object.assign(data, {
                     version: '89a',
-                    looped: metadata.looped === true,
+                    looped: animationInfo.format === 'gif'
+                        ? metadata.looped === true : true,
                     maxColors: qualityProfile.gifColors,
                 });
             }
@@ -368,7 +377,7 @@ function createAnimationEncoder(animationInfo, width, height, qualityProfile) {
         addFrame: function (pixels, delay) {
             if (!initialized) {
                 return Promise.reject(new Error(
-                    `The ${animationInfo.formatLabel} encoder is not ready.`
+                    `The ${outputInfo.label} encoder is not ready.`
                 ));
             }
             return client.call('encoder:encode', {
@@ -377,9 +386,9 @@ function createAnimationEncoder(animationInfo, width, height, qualityProfile) {
         },
         finish: async function () {
             const output = await client.call('encoder:flush',
-                animationInfo.format === 'gif' ? 'arrayBuffer' : undefined
+                outputFormat === 'gif' ? 'arrayBuffer' : undefined
             );
-            return new Blob([output], { type: animationInfo.mimeType });
+            return new Blob([output], { type: outputInfo.mimeType });
         },
         terminate: function () { client.terminate(); },
     };

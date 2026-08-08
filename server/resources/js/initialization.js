@@ -24,8 +24,9 @@ $('.cp-black').colorpicker({
     useAlpha: false
 });
 
-// Intialize font-family select
-$('select').selectpicker({
+// The animation selects are populated or updated at editor runtime and work
+// best as native controls. Other selects retain the existing styled picker.
+$('select:not(#animation-output-format):not(#animation-quality)').selectpicker({
     style: 'new-select',
 });
 

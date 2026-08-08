@@ -205,6 +205,77 @@ async function openAdditionalAnimationEditor(page, format) {
   await expect(page.locator('#animation-frame-label')).toContainText('Frame 1 of 2');
 }
 
+async function downloadAnimatedOutput(page) {
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('#generate-meme').click();
+  const download = await downloadPromise;
+  const stream = await download.createReadStream();
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  return { download, output: Buffer.concat(chunks) };
+}
+
+async function decodeAnimatedOutput(page, format, output) {
+  if (format === 'GIF') {
+    const bytes = output.buffer.slice(output.byteOffset, output.byteOffset + output.byteLength);
+    const metadata = decodeGif(bytes);
+    const frames = decodeGifFrames(bytes, { gif: metadata });
+    return {
+      width: metadata.width,
+      height: metadata.height,
+      delays: frames.map(frame => frame.delay),
+      frameCount: frames.length,
+      loopCount: metadata.loopCount || 0,
+      looped: metadata.looped,
+      hasTransparency: frames.some(frame =>
+        frame.data.some((value, index) => index % 4 === 3 && value === 0)
+      ),
+    };
+  }
+  if (format === 'APNG') {
+    await page.addScriptTag({ url: '/vendors/upng/UPNG.umd.js' });
+  }
+  return page.evaluate(async ({ format, bytes }) => {
+    if (format === 'APNG') {
+      const image = UPNG.decode(new Uint8Array(bytes).buffer);
+      const frames = UPNG.toRGBA8(image);
+      return {
+        width: image.width,
+        height: image.height,
+        delays: image.frames.map(frame => frame.delay),
+        frameCount: frames.length,
+        loopCount: image.tabs.acTL.num_plays,
+        hasTransparency: frames.some(frame =>
+          new Uint8Array(frame).some((value, index) => index % 4 === 3 && value === 0)
+        ),
+      };
+    }
+    const { decodeAnimation } = await import('/vendors/wasm-webp/index.js');
+    const data = new Uint8Array(bytes);
+    const frames = await decodeAnimation(data, true);
+    const view = new DataView(data.buffer);
+    let loopCount;
+    for (let offset = 12; offset + 8 <= data.length;) {
+      const length = view.getUint32(offset + 4, true);
+      if (String.fromCharCode(...data.subarray(offset, offset + 4)) === 'ANIM') {
+        loopCount = view.getUint16(offset + 12, true);
+        break;
+      }
+      offset += 8 + length + (length & 1);
+    }
+    return {
+      width: frames[0].width,
+      height: frames[0].height,
+      delays: frames.map(frame => frame.duration),
+      frameCount: frames.length,
+      loopCount,
+      hasTransparency: frames.some(frame =>
+        frame.data.some((value, index) => index % 4 === 3 && value === 0)
+      ),
+    };
+  }, { format, bytes: Array.from(output) });
+}
+
 async function canvasObjects(page) {
   return page.evaluate(() => canvas.getObjects().map(object => ({
     type: object.type,
@@ -239,12 +310,76 @@ test('quality controls appear only for animations and explain the APNG exception
   await page.locator('.back-btn .btn').click();
   await openGifEditor(page);
   await expect(page.locator('#animation-quality-controls')).toBeVisible();
+  await expect(page.locator('#animation-output-format')).toBeVisible();
+  await expect(page.locator('#animation-quality')).toBeVisible();
   await expect(page.locator('#animation-quality')).toHaveValue('full');
-  await expect(page.locator('#animation-quality-help')).toHaveAttribute(
+  await expect(page.locator('#animation-output-format')).toHaveValue('gif');
+  await expect(page.locator('#animation-output-format option')).toHaveText([
+    'GIF (same as source)', 'WebP', 'APNG',
+  ]);
+  await expect(page.locator('#animation-gif-warning')).toBeHidden();
+  await expect(page.locator('#animation-quality')).toHaveAttribute(
     'title',
     'Lower quality reduces file size and encoding time. For APNG, it reduces file size only.'
   );
+  await expect(page.locator('#animation-quality-help')).toHaveCount(0);
 });
+
+test('GIF conversion warning appears only for non-GIF sources exported as GIF', async ({ page }) => {
+  await openAdditionalAnimationEditor(page, 'APNG');
+  await expect(page.locator('#animation-output-format option')).toHaveText([
+    'APNG (same as source)', 'GIF', 'WebP',
+  ]);
+  await expect(page.locator('#animation-gif-warning')).toBeHidden();
+
+  await page.locator('#animation-output-format').selectOption('gif');
+  await expect(page.locator('#animation-gif-warning')).toBeVisible();
+  await expect(page.locator('#animation-gif-warning')).toContainText(
+    'Converting to GIF may reduce colors and transparency quality.'
+  );
+
+  await page.locator('#animation-output-format').selectOption('webp');
+  await expect(page.locator('#animation-gif-warning')).toBeHidden();
+});
+
+const conversionCases = [
+  { source: 'GIF', output: 'WebP' },
+  { source: 'GIF', output: 'APNG' },
+  { source: 'APNG', output: 'GIF' },
+  { source: 'APNG', output: 'WebP' },
+  { source: 'WebP', output: 'GIF' },
+  { source: 'WebP', output: 'APNG' },
+];
+
+for (const conversion of conversionCases) {
+  test(`${conversion.source} can export as ${conversion.output}`, async ({ page }) => {
+    if (conversion.source === 'GIF') {
+      await openGifEditor(page);
+    }
+    else {
+      await openAdditionalAnimationEditor(page, conversion.source);
+    }
+    await page.locator('#animation-output-format').selectOption(conversion.output.toLowerCase());
+    await expect(page.locator('#generate-meme')).toHaveText(`Generate ${conversion.output}`);
+
+    const { download, output } = await downloadAnimatedOutput(page);
+    const extension = conversion.output === 'APNG' ? '.png' : `.${conversion.output.toLowerCase()}`;
+    expect(download.suggestedFilename()).toMatch(new RegExp(`\\${extension}$`));
+    const decoded = await decodeAnimatedOutput(page, conversion.output, output);
+    const sourceIsGif = conversion.source === 'GIF';
+    expect(decoded).toMatchObject({
+      width: sourceIsGif ? 64 : 32,
+      height: sourceIsGif ? 48 : 24,
+      delays: [100, 200],
+      frameCount: 2,
+      loopCount: sourceIsGif ? 0 : 3,
+      hasTransparency: true,
+    });
+    if (conversion.output === 'GIF') {
+      expect(decoded.looped).toBe(true);
+    }
+  });
+}
 
 for (const format of ['GIF', 'APNG', 'WebP']) {
   for (const quality of ['balanced', 'low']) {

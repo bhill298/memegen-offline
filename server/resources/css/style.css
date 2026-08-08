@@ -129,22 +129,25 @@ body {
     padding: 0.65rem 0.75rem 0.75rem;
 }
 
-.animation-quality-controls {
+.animation-export-selectors {
+    display: flex;
     align-items: center;
+    flex-wrap: wrap;
 }
 
 .animation-quality-controls:not([hidden]) {
-    display: flex;
+    display: block;
 }
 
-#animation-quality {
+#animation-quality,
+#animation-output-format {
     width: auto;
 }
 
-.animation-quality-help {
-    color: #555;
-    cursor: help;
-    line-height: 1;
+.animation-gif-warning {
+    color: #856404;
+    font-size: 0.8rem;
+    margin-top: 0.3rem;
 }
 
 .animation-timeline-readout {
