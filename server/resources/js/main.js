@@ -96,6 +96,13 @@ function processMeme(memeInfo) {
     let backgroundLoadFailed = false;
     let pendingAssetLoads = 0;
     let isExporting = false;
+    const historyLimit = 50;
+    const historyStates = [];
+    const historyImageSources = {};
+    let nextHistoryImageId = 1;
+    let historyIndex = -1;
+    let historyTimeout;
+    let restoringHistory = false;
     var hoverAnimationRequestId;
 
     function updateGenerateButton() {
@@ -117,8 +124,131 @@ function processMeme(memeInfo) {
 
     updateGenerateButton();
 
+    function updateHistoryButtons() {
+        $('#canvas-undo').prop('disabled', restoringHistory || historyIndex <= 0);
+        $('#canvas-redo').prop(
+            'disabled', restoringHistory || historyIndex >= historyStates.length - 1
+        );
+    }
+
+    function serializeHistoryState() {
+        const objects = editorCanvas.getObjects().map(function (object) {
+            const serialized = object.toObject();
+            if (object.type === 'image') {
+                if (!object.__historyImageId) {
+                    object.__historyImageId = nextHistoryImageId++;
+                }
+                if (!historyImageSources[object.__historyImageId]) {
+                    historyImageSources[object.__historyImageId] = serialized.src;
+                }
+                serialized.__historyImageId = object.__historyImageId;
+                delete serialized.src;
+            }
+            return serialized;
+        });
+        return JSON.stringify(objects);
+    }
+
+    function recordHistoryState() {
+        if (restoringHistory || canvas !== editorCanvas) {
+            return;
+        }
+        const state = serializeHistoryState();
+        if (historyIndex >= 0 && historyStates[historyIndex] === state) {
+            updateHistoryButtons();
+            return;
+        }
+        historyStates.splice(historyIndex + 1);
+        historyStates.push(state);
+        if (historyStates.length > historyLimit) {
+            historyStates.shift();
+        }
+        historyIndex = historyStates.length - 1;
+        updateHistoryButtons();
+    }
+
+    function flushScheduledHistory() {
+        if (historyTimeout !== undefined) {
+            clearTimeout(historyTimeout);
+            historyTimeout = undefined;
+            recordHistoryState();
+        }
+    }
+
+    scheduleCanvasHistory = function () {
+        if (restoringHistory || canvas !== editorCanvas) {
+            return;
+        }
+        if (historyTimeout !== undefined) {
+            clearTimeout(historyTimeout);
+        }
+        historyTimeout = setTimeout(function () {
+            historyTimeout = undefined;
+            recordHistoryState();
+        }, 200);
+    };
+
+    function restoreHistoryState(index) {
+        if (restoringHistory || index < 0 || index >= historyStates.length) {
+            return;
+        }
+        restoringHistory = true;
+        historyIndex = index;
+        updateHistoryButtons();
+
+        const serializedObjects = JSON.parse(historyStates[historyIndex]);
+        serializedObjects.forEach(function (object) {
+            if (object.type === 'image') {
+                object.src = historyImageSources[object.__historyImageId];
+            }
+        });
+        fabric.util.enlivenObjects(serializedObjects, function (objects) {
+            if (canvas !== editorCanvas) {
+                return;
+            }
+            editorCanvas.discardActiveObject();
+            editorCanvas.getObjects().slice().forEach(function (object) {
+                editorCanvas.remove(object);
+            });
+            objects.forEach(function (object, objectIndex) {
+                object.__historyImageId = serializedObjects[objectIndex].__historyImageId;
+                editorCanvas.add(object);
+            });
+            editorCanvas.renderAll();
+            restoringHistory = false;
+            updateHistoryButtons();
+        });
+    }
+
+    function undoCanvas() {
+        if (restoringHistory) {
+            return;
+        }
+        flushScheduledHistory();
+        restoreHistoryState(historyIndex - 1);
+    }
+
+    function redoCanvas() {
+        if (restoringHistory) {
+            return;
+        }
+        flushScheduledHistory();
+        restoreHistoryState(historyIndex + 1);
+    }
+
+    editorCanvas.on({
+        'object:added': scheduleCanvasHistory,
+        'object:removed': scheduleCanvasHistory,
+        'object:modified': scheduleCanvasHistory,
+    });
+    recordHistoryState();
+
     destroyMemeEditor = function () {
         $(window).off('.memeEditor');
+        if (historyTimeout !== undefined) {
+            clearTimeout(historyTimeout);
+        }
+        scheduleCanvasHistory = function () {};
         if (hoverAnimationRequestId !== undefined) {
             cancelAnimationFrame(hoverAnimationRequestId);
         }
@@ -234,6 +364,26 @@ function processMeme(memeInfo) {
     // divs also need a tab index to be focusable
     $('#meme-canvas-wrapper').off('keydown').keydown(function (e) {
         keyMap[e.keyCode] = true;
+        const activeObjectForShortcut = canvas.getActiveObject();
+        const modifierKey = e.ctrlKey || e.metaKey;
+        const shortcutKey = (e.key || '').toLowerCase();
+        if (modifierKey && !(activeObjectForShortcut && activeObjectForShortcut.isEditing)) {
+            if (shortcutKey === 'z') {
+                if (e.shiftKey) {
+                    redoCanvas();
+                }
+                else {
+                    undoCanvas();
+                }
+                e.preventDefault();
+                return;
+            }
+            if (shortcutKey === 'y') {
+                redoCanvas();
+                e.preventDefault();
+                return;
+            }
+        }
         // ctrl is being held down
         if (keyMap[17] === true) {
             // ctrl + c
@@ -299,6 +449,7 @@ function processMeme(memeInfo) {
                 activeObject.top += moveY;
                 activeObject.setCoords();
                 canvas.renderAll();
+                scheduleCanvasHistory();
                 e.preventDefault();
             }
         }
@@ -474,6 +625,9 @@ function processMeme(memeInfo) {
     $("#canvas-delete").off('click').on('click', function () {
         deleteSelected(true);
     });
+
+    $('#canvas-undo').off('click').on('click', undoCanvas);
+    $('#canvas-redo').off('click').on('click', redoCanvas);
 
     $("#canvas-clear").off('click').on('click', function () {
         canvas.getObjects().forEach(el => canvas.remove(el));

@@ -1,9 +1,12 @@
 // Update attribute of the current canvas object
+var scheduleCanvasHistory = function () {};
+
 function setValue(key, value) {
     if (canvas.getActiveObject() != null) {
         var activeText = canvas.getActiveObject();
         activeText.set(key, value);
         canvas.renderAll();
+        scheduleCanvasHistory();
     }
 }
 

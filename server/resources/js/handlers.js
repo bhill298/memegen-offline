@@ -15,6 +15,7 @@ function loadFont(font) {
             text.set("fontFamily", "");
             text.set("fontFamily", font);
             fontCanvas.renderAll();
+            scheduleCanvasHistory();
             $('#font-family').selectpicker('refresh');
         }).catch(function () {
             if (canvas === fontCanvas) {
@@ -24,6 +25,7 @@ function loadFont(font) {
     } else {
         text.set("fontFamily", font);
         fontCanvas.renderAll();
+        scheduleCanvasHistory();
         $('#font-family').selectpicker('refresh');
     }
 }
@@ -66,6 +68,7 @@ function loadObjectHandlers() {
             var activeText = canvas.getActiveObject();
             activeText.scale(parseFloat(this.value)).setCoords();
             canvas.renderAll();
+            scheduleCanvasHistory();
         }
     });
 
