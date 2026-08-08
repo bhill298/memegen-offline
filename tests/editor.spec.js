@@ -303,6 +303,28 @@ test('can repeatedly enter and leave the editor without retaining a canvas', asy
   expect(pageErrors).toEqual([]);
 });
 
+test('ignores overlapping custom-template selections while preparing an editor', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.memes-container img').first()).toBeVisible();
+  await page.evaluate(() => {
+    window.__prepareCallCount = 0;
+    const originalPrepareAnimatedMemeInfo = prepareAnimatedMemeInfo;
+    prepareAnimatedMemeInfo = async function (imgInfo) {
+      window.__prepareCallCount++;
+      await new Promise(resolve => setTimeout(resolve, 300));
+      return originalPrepareAnimatedMemeInfo(imgInfo);
+    };
+  });
+
+  await page.locator('#meme-input').setInputFiles(blankImage);
+  await page.locator('#meme-input').setInputFiles(blankImage);
+  await expect(page.locator('#generate-meme')).toBeEnabled();
+
+  expect(await page.evaluate(() => window.__prepareCallCount)).toBe(1);
+  await expect(page.locator('.canvas-container')).toHaveCount(1);
+  await expect(page.locator('#meme-canvas')).toHaveCount(1);
+});
+
 test('quality controls appear only for animations and explain the APNG exception', async ({ page }) => {
   await openEditor(page);
   await expect(page.locator('#animation-quality-controls')).toBeHidden();

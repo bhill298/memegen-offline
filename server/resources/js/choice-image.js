@@ -30,7 +30,7 @@ $(function () {
         // Reset file input
         $('#meme-input').val('');
 
-        if (!file) {
+        if (!file || handlingClick) {
             return;
         }
 
@@ -40,6 +40,7 @@ $(function () {
             return;
         }
 
+        handlingClick = true;
         const reader = new FileReader();
         reader.onload = function () {
             var meme = new Image();
@@ -55,14 +56,17 @@ $(function () {
                 $('.choice-section').trigger('choice-done', imgInfo);
             }
             meme.onerror = function () {
+                handlingClick = false;
                 showAlert('Error! The selected image could not be decoded.');
             }
             meme.src = reader.result;
         }
         reader.onerror = function () {
+            handlingClick = false;
             showAlert('Error! The selected image could not be read.');
         }
         reader.onabort = function () {
+            handlingClick = false;
             showAlert('Image loading was cancelled.');
         }
         reader.readAsDataURL(file);
