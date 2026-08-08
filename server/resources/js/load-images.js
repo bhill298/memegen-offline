@@ -6,7 +6,7 @@ var __currentMemeIndex = 0;
 var __currentMemeEndIndex = 0;
 // this sets the images per page
 const __memeStride = 60;
-const __meme_url = window.location.href + "img/memes/";
+const __meme_url = new URL('img/memes/', document.baseURI).href;
 const __use_php = false;
 
 function clearPhotos() {
@@ -122,7 +122,7 @@ function loadPhotos(start, count=__memeStride) {
                     // check if another request finished while this one was being handled
                     if (!__initDone) {
                         // scan for any links on the rendered html page (this will get any files, not just images)
-                        let responses = response.match(/<a href=".*"/gm);
+                        let responses = response.match(/<a href=".*"/gm) || [];
                         for (let i = 0; i < responses.length; i++) {
                             let name = responses[i].match(/href="(.*)"/)[1];
                             __imgNames.push(name);
