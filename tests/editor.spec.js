@@ -57,7 +57,106 @@ async function openGifEditor(page) {
   });
   await expect(page.locator('#generate-meme')).toHaveText('Generate GIF');
   await expect(page.locator('#generate-meme')).toBeEnabled();
-  await expect(page.locator('#gif-status')).toContainText('2 frames');
+  await expect(page.locator('#animation-status')).toContainText('2 frames');
+}
+
+async function animatedApngBuffer(page) {
+  await page.addScriptTag({ url: '/vendors/upng/UPNG.umd.js' });
+  const bytes = await page.evaluate(() => {
+    const width = 32;
+    const height = 24;
+    const frame = (red, green, blue) => {
+      const pixels = new Uint8Array(width * height * 4);
+      for (let index = 0; index < pixels.length; index += 4) {
+        pixels[index] = red;
+        pixels[index + 1] = green;
+        pixels[index + 2] = blue;
+        pixels[index + 3] = 255;
+      }
+      return pixels.buffer;
+    };
+    const output = new Uint8Array(
+      UPNG.encode([frame(220, 20, 20), frame(20, 180, 40)], width, height, 0, [100, 200])
+    );
+    const view = new DataView(output.buffer);
+    const crc32 = (start, length) => {
+      let crc = 0xffffffff;
+      for (let index = start; index < start + length; index++) {
+        crc ^= output[index];
+        for (let bit = 0; bit < 8; bit++) {
+          crc = (crc >>> 1) ^ (0xedb88320 & -(crc & 1));
+        }
+      }
+      return (crc ^ 0xffffffff) >>> 0;
+    };
+    for (let offset = 8; offset + 20 <= output.length;) {
+      const length = view.getUint32(offset);
+      const type = String.fromCharCode(...output.subarray(offset + 4, offset + 8));
+      if (type === 'acTL') {
+        view.setUint32(offset + 12, 3);
+        view.setUint32(offset + 16, crc32(offset + 4, 12));
+        break;
+      }
+      offset += 12 + length;
+    }
+    return Array.from(output);
+  });
+  return Buffer.from(bytes);
+}
+
+async function animatedWebpBuffer(page) {
+  const bytes = await page.evaluate(async () => {
+    const { encodeAnimation } = await import('/vendors/wasm-webp/index.js');
+    const width = 32;
+    const height = 24;
+    const frame = (red, green, blue) => {
+      const pixels = new Uint8Array(width * height * 4);
+      for (let index = 0; index < pixels.length; index += 4) {
+        pixels[index] = red;
+        pixels[index + 1] = green;
+        pixels[index + 2] = blue;
+        pixels[index + 3] = 255;
+      }
+      return pixels;
+    };
+    const output = await encodeAnimation(width, height, true, [
+      { data: frame(220, 20, 20), duration: 100, config: { lossless: 1, quality: 100 } },
+      { data: frame(20, 180, 40), duration: 200, config: { lossless: 1, quality: 100 } },
+    ]);
+    let frameIndex = 0;
+    const view = new DataView(output.buffer, output.byteOffset, output.byteLength);
+    for (let offset = 12; offset + 8 <= output.length;) {
+      const length = view.getUint32(offset + 4, true);
+      const type = String.fromCharCode(...output.subarray(offset, offset + 4));
+      if (type === 'ANIM') {
+        view.setUint16(offset + 12, 3, true);
+      }
+      else if (type === 'ANMF') {
+        const delay = [100, 200][frameIndex++];
+        output[offset + 20] = delay & 255;
+        output[offset + 21] = (delay >>> 8) & 255;
+        output[offset + 22] = (delay >>> 16) & 255;
+      }
+      offset += 8 + length + (length & 1);
+    }
+    return Array.from(output);
+  });
+  return Buffer.from(bytes);
+}
+
+async function openAdditionalAnimationEditor(page, format) {
+  await page.goto('/');
+  await expect(page.locator('.memes-container img').first()).toBeVisible();
+  const isApng = format === 'APNG';
+  const buffer = isApng ? await animatedApngBuffer(page) : await animatedWebpBuffer(page);
+  await page.locator('#meme-input').setInputFiles({
+    name: isApng ? 'animated-test.apng' : 'animated-test.webp',
+    mimeType: isApng ? 'image/apng' : 'image/webp',
+    buffer,
+  });
+  await expect(page.locator('#generate-meme')).toHaveText(`Generate ${format}`);
+  await expect(page.locator('#generate-meme')).toBeEnabled();
+  await expect(page.locator('#animation-status')).toContainText('2 frames');
 }
 
 async function canvasObjects(page) {
@@ -168,7 +267,7 @@ test('export preserves the template resolution', async ({ page }) => {
 
 test('an animated GIF previews multiple decoded frames', async ({ page }) => {
   await openGifEditor(page);
-  expect(await page.evaluate(() => canvas.gifTimeline.segments)).toEqual([
+  expect(await page.evaluate(() => canvas.animationTimeline.segments)).toEqual([
     { startFrame: 0, editorState: null },
   ]);
   const observedColors = await page.evaluate(() => new Promise(resolve => {
@@ -239,10 +338,87 @@ test('leaving a GIF editor restores the unchanged static editor path', async ({ 
   await openGifEditor(page);
   await page.locator('.back-btn .btn').click();
   await expect(page.locator('.canvas-container')).toHaveCount(0);
-  await expect(page.locator('#gif-status')).toBeHidden();
+  await expect(page.locator('#animation-status')).toBeHidden();
 
   await page.locator('#meme-input').setInputFiles(blankImage);
   await expect(page.locator('#generate-meme')).toHaveText('Generate Meme');
   await expect(page.locator('#generate-meme')).toBeEnabled();
-  expect(await page.evaluate(() => canvas.gifTimeline)).toBeUndefined();
+  expect(await page.evaluate(() => canvas.animationTimeline)).toBeUndefined();
 });
+
+for (const format of ['APNG', 'WebP']) {
+  test(`${format} previews and exports both frames with their original timing`, async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', error => pageErrors.push(error.message));
+    await openAdditionalAnimationEditor(page, format);
+
+    const observedColors = await page.evaluate(() => new Promise(resolve => {
+      const colors = new Set();
+      const sample = () => {
+        const frameCanvas = canvas.backgroundImage.getElement();
+        const pixel = frameCanvas.getContext('2d').getImageData(0, 0, 1, 1).data;
+        colors.add(`${pixel[0]},${pixel[1]},${pixel[2]}`);
+      };
+      sample();
+      const timer = setInterval(sample, 25);
+      setTimeout(() => {
+        clearInterval(timer);
+        resolve([...colors]);
+      }, 450);
+    }));
+    expect(observedColors.length).toBeGreaterThan(1);
+
+    await page.locator('#add-text').click();
+    await waitForHistory(page);
+    const downloadPromise = page.waitForEvent('download');
+    await page.locator('#generate-meme').click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toMatch(format === 'APNG' ? /\.png$/ : /\.webp$/);
+    const stream = await download.createReadStream();
+    const chunks = [];
+    for await (const chunk of stream) chunks.push(chunk);
+    const output = Buffer.concat(chunks);
+
+    const decoded = await page.evaluate(async ({ format, bytes }) => {
+      if (format === 'APNG') {
+        const image = UPNG.decode(new Uint8Array(bytes).buffer);
+        const frames = UPNG.toRGBA8(image);
+        return {
+          width: image.width,
+          height: image.height,
+          delays: image.frames.map(frame => frame.delay),
+          frameCount: frames.length,
+          loopCount: image.tabs.acTL.num_plays,
+          firstFrameColors: new Set(Array.from(new Uint32Array(frames[0]))).size,
+        };
+      }
+      const { decodeAnimation } = await import('/vendors/wasm-webp/index.js');
+      const frames = await decodeAnimation(new Uint8Array(bytes), true);
+      const data = new Uint8Array(bytes);
+      const view = new DataView(data.buffer);
+      let loopCount;
+      for (let offset = 12; offset + 8 <= data.length;) {
+        const length = view.getUint32(offset + 4, true);
+        if (String.fromCharCode(...data.subarray(offset, offset + 4)) === 'ANIM') {
+          loopCount = view.getUint16(offset + 12, true);
+          break;
+        }
+        offset += 8 + length + (length & 1);
+      }
+      return {
+        width: frames[0].width,
+        height: frames[0].height,
+        delays: frames.map(frame => frame.duration),
+        frameCount: frames.length,
+        loopCount,
+        firstFrameColors: new Set(Array.from(new Uint32Array(frames[0].data.buffer))).size,
+      };
+    }, { format, bytes: Array.from(output) });
+
+    expect(decoded).toMatchObject({
+      width: 32, height: 24, delays: [100, 200], frameCount: 2, loopCount: 3,
+    });
+    expect(decoded.firstFrameColors).toBeGreaterThan(1);
+    expect(pageErrors).toEqual([]);
+  });
+}

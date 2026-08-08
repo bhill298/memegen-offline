@@ -96,15 +96,15 @@ function processMeme(memeInfo) {
     let backgroundLoadFailed = false;
     let pendingAssetLoads = 0;
     let isExporting = false;
-    const gifInfo = memeInfo.gifInfo;
-    const $gifStatus = $('#gif-status');
-    let gifFrames;
-    let gifFramePlayer;
-    let activeGifDecoder;
-    let activeGifEncoder;
-    let gifExportLabel = '';
+    const animationInfo = memeInfo.animationInfo;
+    const $animationStatus = $('#animation-status');
+    let animationFrames;
+    let animationFramePlayer;
+    let activeAnimationDecoder;
+    let activeAnimationEncoder;
+    let animationExportLabel = '';
     let editorDestroyed = false;
-    editorCanvas.gifTimeline = gifInfo ? gifInfo.timeline : undefined;
+    editorCanvas.animationTimeline = animationInfo ? animationInfo.timeline : undefined;
     const historyLimit = 50;
     const historyStates = [];
     const historyImageSources = {};
@@ -115,7 +115,7 @@ function processMeme(memeInfo) {
     var hoverAnimationRequestId;
 
     function updateGenerateButton() {
-        let label = gifInfo ? 'Generate GIF' : 'Generate Meme';
+        let label = animationInfo ? `Generate ${animationInfo.formatLabel}` : 'Generate Meme';
         if (!backgroundReady) {
             label = backgroundLoadFailed ? 'Template Load Failed' : 'Loading Template...';
         }
@@ -123,7 +123,8 @@ function processMeme(memeInfo) {
             label = 'Loading Image...';
         }
         else if (isExporting) {
-            label = gifExportLabel || (gifInfo ? 'Generating GIF...' : 'Generating...');
+            label = animationExportLabel ||
+                (animationInfo ? `Generating ${animationInfo.formatLabel}...` : 'Generating...');
         }
         $generateButton
             .prop('disabled', !backgroundReady || pendingAssetLoads > 0 || isExporting)
@@ -132,11 +133,13 @@ function processMeme(memeInfo) {
     }
 
     updateGenerateButton();
-    if (gifInfo) {
-        $gifStatus.removeAttr('hidden').text('Loading animated GIF...');
+    if (animationInfo) {
+        $animationStatus.removeAttr('hidden').text(
+            `Loading animated ${animationInfo.formatLabel}...`
+        );
     }
     else {
-        $gifStatus.attr('hidden', true).empty();
+        $animationStatus.attr('hidden', true).empty();
     }
 
     function updateHistoryButtons() {
@@ -268,19 +271,19 @@ function processMeme(memeInfo) {
         if (hoverAnimationRequestId !== undefined) {
             cancelAnimationFrame(hoverAnimationRequestId);
         }
-        if (gifFramePlayer) {
-            gifFramePlayer.destroy();
+        if (animationFramePlayer) {
+            animationFramePlayer.destroy();
         }
-        if (activeGifDecoder) {
-            activeGifDecoder.terminate();
-            activeGifDecoder = undefined;
+        if (activeAnimationDecoder) {
+            activeAnimationDecoder.terminate();
+            activeAnimationDecoder = undefined;
         }
-        if (activeGifEncoder) {
-            activeGifEncoder.terminate();
-            activeGifEncoder = undefined;
+        if (activeAnimationEncoder) {
+            activeAnimationEncoder.terminate();
+            activeAnimationEncoder = undefined;
         }
-        gifFrames = undefined;
-        $gifStatus.attr('hidden', true).empty();
+        animationFrames = undefined;
+        $animationStatus.attr('hidden', true).empty();
         editorCanvas.dispose();
         $('#meme-canvas').remove();
         if (canvas === editorCanvas) {
@@ -544,19 +547,19 @@ function processMeme(memeInfo) {
         });
     }
 
-    async function loadGifBackground() {
+    async function loadAnimatedBackground() {
         try {
-            activeGifDecoder = createGifFrameDecoder(gifInfo);
-            const frames = await activeGifDecoder.promise;
-            activeGifDecoder = undefined;
+            activeAnimationDecoder = createAnimationFrameDecoder(animationInfo);
+            const frames = await activeAnimationDecoder.promise;
+            activeAnimationDecoder = undefined;
             if (editorDestroyed || canvas !== editorCanvas) {
                 return;
             }
-            gifFrames = frames;
-            gifInfo.buffer = undefined;
+            animationFrames = frames;
+            animationInfo.buffer = undefined;
             const frameCanvas = document.createElement('canvas');
-            frameCanvas.width = gifInfo.metadata.width;
-            frameCanvas.height = gifInfo.metadata.height;
+            frameCanvas.width = animationInfo.metadata.width;
+            frameCanvas.height = animationInfo.metadata.height;
             const frameContext = frameCanvas.getContext('2d');
             const meme = new fabric.Image(frameCanvas, {
                 scaleX: sizePlan.workingWidth / frameCanvas.width,
@@ -569,11 +572,11 @@ function processMeme(memeInfo) {
                     new ImageData(frame.data, frame.width, frame.height), 0, 0
                 );
                 meme.dirty = true;
-                gifInfo.timeline.currentFrame = frameIndex;
+                animationInfo.timeline.currentFrame = frameIndex;
                 editorCanvas.requestRenderAll();
             }
 
-            gifFramePlayer = createGifFramePlayer(frames, displayFrame);
+            animationFramePlayer = createAnimationFramePlayer(frames, displayFrame);
             editorCanvas.setBackgroundImage(meme, function () {
                 if (editorDestroyed || canvas !== editorCanvas) {
                     return;
@@ -581,13 +584,15 @@ function processMeme(memeInfo) {
                 backgroundReady = true;
                 editorCanvas.renderAll();
                 updateGenerateButton();
-                $gifStatus.text(
-                    `${gifInfo.frameCount} frames · ${formatGifDuration(gifInfo.duration)}`
+                $animationStatus.text(
+                    `${animationInfo.frameCount} frames · ` +
+                    `${formatAnimationDuration(animationInfo.duration)}`
                 );
-                gifFramePlayer.play();
+                animationFramePlayer.play();
                 if (sizePlan.outputWasReduced) {
                     showAlert(
-                        `Large GIF: output will be resized from ${sizePlan.sourceWidth} x ` +
+                        `Large ${animationInfo.formatLabel}: output will be resized from ` +
+                        `${sizePlan.sourceWidth} x ` +
                         `${sizePlan.sourceHeight} to ${sizePlan.outputWidth} x ${sizePlan.outputHeight}.`
                     );
                 }
@@ -596,13 +601,13 @@ function processMeme(memeInfo) {
         catch (error) {
             if (!editorDestroyed && canvas === editorCanvas) {
                 reportBackgroundLoadFailure(`Error! ${error.message}`);
-                $gifStatus.text('GIF load failed');
+                $animationStatus.text(`${animationInfo.formatLabel} load failed`);
             }
         }
     }
 
-    if (gifInfo) {
-        loadGifBackground();
+    if (animationInfo) {
+        loadAnimatedBackground();
     }
     else {
         loadStaticBackground();
@@ -807,12 +812,12 @@ function processMeme(memeInfo) {
         }, 1000);
     }
 
-    function renderGifSegmentOverlay() {
+    function renderAnimationSegmentOverlay() {
         const backgroundImage = editorCanvas.backgroundImage;
         editorCanvas.backgroundImage = null;
         try {
             editorCanvas.renderAll();
-            gifInfo.timeline.segments[0].editorState = editorCanvas.toJSON();
+            animationInfo.timeline.segments[0].editorState = editorCanvas.toJSON();
             return editorCanvas.toCanvasElement(sizePlan.exportMultiplier);
         }
         finally {
@@ -821,12 +826,12 @@ function processMeme(memeInfo) {
         }
     }
 
-    async function exportAnimatedGif() {
-        gifFramePlayer.pause();
-        const overlayCanvas = renderGifSegmentOverlay();
+    async function exportAnimatedImage() {
+        animationFramePlayer.pause();
+        const overlayCanvas = renderAnimationSegmentOverlay();
         const sourceCanvas = document.createElement('canvas');
-        sourceCanvas.width = gifInfo.metadata.width;
-        sourceCanvas.height = gifInfo.metadata.height;
+        sourceCanvas.width = animationInfo.metadata.width;
+        sourceCanvas.height = animationInfo.metadata.height;
         const sourceContext = sourceCanvas.getContext('2d');
         const outputCanvas = document.createElement('canvas');
         outputCanvas.width = sizePlan.outputWidth;
@@ -835,16 +840,16 @@ function processMeme(memeInfo) {
         outputContext.imageSmoothingEnabled = true;
         outputContext.imageSmoothingQuality = 'high';
 
-        activeGifEncoder = createGifEncoder(
-            gifInfo, sizePlan.outputWidth, sizePlan.outputHeight
+        activeAnimationEncoder = createAnimationEncoder(
+            animationInfo, sizePlan.outputWidth, sizePlan.outputHeight
         );
-        await activeGifEncoder.initialize();
+        await activeAnimationEncoder.initialize();
 
-        for (let frameIndex = 0; frameIndex < gifFrames.length; frameIndex++) {
+        for (let frameIndex = 0; frameIndex < animationFrames.length; frameIndex++) {
             if (editorDestroyed || canvas !== editorCanvas) {
-                throw new Error('The GIF operation was cancelled.');
+                throw new Error(`The ${animationInfo.formatLabel} operation was cancelled.`);
             }
-            const frame = gifFrames[frameIndex];
+            const frame = animationFrames[frameIndex];
             sourceContext.putImageData(
                 new ImageData(frame.data, frame.width, frame.height), 0, 0
             );
@@ -856,18 +861,19 @@ function processMeme(memeInfo) {
             const pixels = outputContext.getImageData(
                 0, 0, outputCanvas.width, outputCanvas.height
             ).data;
-            gifExportLabel = `Generating GIF... ${frameIndex + 1}/${gifFrames.length}`;
-            $gifStatus.text(gifExportLabel);
+            animationExportLabel = `Generating ${animationInfo.formatLabel}... ` +
+                `${frameIndex + 1}/${animationFrames.length}`;
+            $animationStatus.text(animationExportLabel);
             updateGenerateButton();
-            await activeGifEncoder.addFrame(pixels, frame.delay);
+            await activeAnimationEncoder.addFrame(pixels, frame.delay);
         }
 
-        gifExportLabel = 'Finalizing GIF...';
-        $gifStatus.text(gifExportLabel);
+        animationExportLabel = `Finalizing ${animationInfo.formatLabel}...`;
+        $animationStatus.text(animationExportLabel);
         updateGenerateButton();
-        const blob = await activeGifEncoder.finish();
+        const blob = await activeAnimationEncoder.finish();
         if (!editorDestroyed && canvas === editorCanvas) {
-            downloadGeneratedBlob(blob, '.gif');
+            downloadGeneratedBlob(blob, animationInfo.extension);
         }
     }
 
@@ -879,23 +885,27 @@ function processMeme(memeInfo) {
         isExporting = true;
         updateGenerateButton();
 
-        if (gifInfo) {
-            exportAnimatedGif().catch(function (error) {
+        if (animationInfo) {
+            exportAnimatedImage().catch(function (error) {
                 if (!editorDestroyed && canvas === editorCanvas) {
-                    showAlert(`Error! ${error.message || 'The GIF could not be generated.'}`);
+                    showAlert(
+                        `Error! ${error.message ||
+                            `The ${animationInfo.formatLabel} could not be generated.`}`
+                    );
                 }
             }).finally(function () {
-                if (activeGifEncoder) {
-                    activeGifEncoder.terminate();
-                    activeGifEncoder = undefined;
+                if (activeAnimationEncoder) {
+                    activeAnimationEncoder.terminate();
+                    activeAnimationEncoder = undefined;
                 }
-                gifExportLabel = '';
+                animationExportLabel = '';
                 isExporting = false;
                 if (!editorDestroyed && canvas === editorCanvas) {
-                    $gifStatus.text(
-                        `${gifInfo.frameCount} frames · ${formatGifDuration(gifInfo.duration)}`
+                    $animationStatus.text(
+                        `${animationInfo.frameCount} frames · ` +
+                        `${formatAnimationDuration(animationInfo.duration)}`
                     );
-                    gifFramePlayer.play();
+                    animationFramePlayer.play();
                     updateGenerateButton();
                 }
             });

@@ -66,7 +66,9 @@ function setBackgroundColor(color) {
 }
 
 function isImage(fileType) {
-    const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    const validImageTypes = [
+        'image/jpeg', 'image/png', 'image/apng', 'image/gif', 'image/webp'
+    ];
     if (validImageTypes.includes(fileType)) {
         return true;
     }

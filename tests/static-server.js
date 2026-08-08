@@ -22,6 +22,7 @@ const mimeTypes = {
   '.webp': 'image/webp',
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',
+  '.wasm': 'application/wasm',
 };
 
 function escapeHtml(value) {
