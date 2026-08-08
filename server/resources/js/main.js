@@ -98,6 +98,9 @@ function processMeme(memeInfo) {
     let isExporting = false;
     const animationInfo = memeInfo.animationInfo;
     const $animationStatus = $('#animation-status');
+    const $animationTimeline = $('#animation-timeline');
+    const $animationSlider = $('#animation-frame-slider');
+    const $animationSplit = $('#animation-split');
     let animationFrames;
     let animationFramePlayer;
     let activeAnimationDecoder;
@@ -112,7 +115,12 @@ function processMeme(memeInfo) {
     let historyIndex = -1;
     let historyTimeout;
     let restoringHistory = false;
+    let stateLoadToken = 0;
     var hoverAnimationRequestId;
+
+    if (animationInfo && animationInfo.timeline.segments[0].editorState === null) {
+        animationInfo.timeline.segments[0].editorState = [];
+    }
 
     function updateGenerateButton() {
         let label = animationInfo ? `Generate ${animationInfo.formatLabel}` : 'Generate Meme';
@@ -137,9 +145,11 @@ function processMeme(memeInfo) {
         $animationStatus.removeAttr('hidden').text(
             `Loading animated ${animationInfo.formatLabel}...`
         );
+        $animationTimeline.attr('hidden', true);
     }
     else {
         $animationStatus.attr('hidden', true).empty();
+        $animationTimeline.attr('hidden', true);
     }
 
     function updateHistoryButtons() {
@@ -147,10 +157,16 @@ function processMeme(memeInfo) {
         $('#canvas-redo').prop(
             'disabled', restoringHistory || historyIndex >= historyStates.length - 1
         );
+        if (animationInfo && animationFrames) {
+            $animationSlider.prop('disabled', restoringHistory || isExporting);
+            if (restoringHistory) {
+                $animationSplit.prop('disabled', true);
+            }
+        }
     }
 
-    function serializeHistoryState() {
-        const objects = editorCanvas.getObjects().map(function (object) {
+    function serializeEditorObjects() {
+        return editorCanvas.getObjects().map(function (object) {
             const serialized = object.toObject();
             if (object.type === 'image') {
                 if (!object.__historyImageId) {
@@ -164,7 +180,46 @@ function processMeme(memeInfo) {
             }
             return serialized;
         });
-        return JSON.stringify(objects);
+    }
+
+    function cloneEditorState(editorState) {
+        return JSON.parse(JSON.stringify(editorState || []));
+    }
+
+    function findAnimationSegmentIndex(frameIndex) {
+        const segments = animationInfo.timeline.segments;
+        for (let index = segments.length - 1; index >= 0; index--) {
+            if (segments[index].startFrame <= frameIndex) {
+                return index;
+            }
+        }
+        return 0;
+    }
+
+    function captureActiveSegmentState(objects) {
+        if (!animationInfo) {
+            return;
+        }
+        const timeline = animationInfo.timeline;
+        timeline.segments[timeline.activeSegmentIndex].editorState = cloneEditorState(
+            objects || serializeEditorObjects()
+        );
+    }
+
+    function serializeHistoryState() {
+        const objects = serializeEditorObjects();
+        if (animationInfo) {
+            captureActiveSegmentState(objects);
+            return JSON.stringify({
+                segments: animationInfo.timeline.segments.map(function (segment) {
+                    return {
+                        startFrame: segment.startFrame,
+                        editorState: cloneEditorState(segment.editorState),
+                    };
+                }),
+            });
+        }
+        return JSON.stringify({ objects: objects });
     }
 
     function recordHistoryState() {
@@ -214,14 +269,54 @@ function processMeme(memeInfo) {
         historyIndex = index;
         updateHistoryButtons();
 
-        const serializedObjects = JSON.parse(historyStates[historyIndex]);
-        serializedObjects.forEach(function (object) {
+        const historyState = JSON.parse(historyStates[historyIndex]);
+        let serializedObjects;
+        if (animationInfo) {
+            animationInfo.timeline.segments = historyState.segments.map(function (segment) {
+                return {
+                    startFrame: segment.startFrame,
+                    editorState: cloneEditorState(segment.editorState),
+                };
+            });
+            animationInfo.timeline.activeSegmentIndex = findAnimationSegmentIndex(
+                animationInfo.timeline.currentFrame
+            );
+            serializedObjects = cloneEditorState(
+                animationInfo.timeline.segments[
+                    animationInfo.timeline.activeSegmentIndex
+                ].editorState
+            );
+        }
+        else {
+            serializedObjects = historyState.objects;
+        }
+        loadEditorState(serializedObjects, function () {
+            if (animationInfo) {
+                if (animationFramePlayer) {
+                    animationFramePlayer.showFrame(animationInfo.timeline.currentFrame);
+                }
+                updateAnimationTimeline();
+            }
+        });
+    }
+
+    function hydrateEditorState(serializedObjects) {
+        const hydrated = cloneEditorState(serializedObjects);
+        hydrated.forEach(function (object) {
             if (object.type === 'image') {
                 object.src = historyImageSources[object.__historyImageId];
             }
         });
-        fabric.util.enlivenObjects(serializedObjects, function (objects) {
-            if (canvas !== editorCanvas) {
+        return hydrated;
+    }
+
+    function loadEditorState(serializedObjects, onComplete) {
+        const loadToken = ++stateLoadToken;
+        restoringHistory = true;
+        updateHistoryButtons();
+        const hydratedObjects = hydrateEditorState(serializedObjects || []);
+        fabric.util.enlivenObjects(hydratedObjects, function (objects) {
+            if (canvas !== editorCanvas || loadToken !== stateLoadToken) {
                 return;
             }
             editorCanvas.discardActiveObject();
@@ -229,12 +324,15 @@ function processMeme(memeInfo) {
                 editorCanvas.remove(object);
             });
             objects.forEach(function (object, objectIndex) {
-                object.__historyImageId = serializedObjects[objectIndex].__historyImageId;
+                object.__historyImageId = hydratedObjects[objectIndex].__historyImageId;
                 editorCanvas.add(object);
             });
             editorCanvas.renderAll();
             restoringHistory = false;
             updateHistoryButtons();
+            if (onComplete) {
+                onComplete();
+            }
         });
     }
 
@@ -253,6 +351,108 @@ function processMeme(memeInfo) {
         flushScheduledHistory();
         restoreHistoryState(historyIndex + 1);
     }
+
+    function getAnimationFrameStartTime(frameIndex) {
+        let timestamp = 0;
+        for (let index = 0; animationFrames && index < frameIndex; index++) {
+            timestamp += animationFrames[index].delay;
+        }
+        return timestamp;
+    }
+
+    function updateAnimationTimeline() {
+        if (!animationInfo || !animationFrames) {
+            $animationTimeline.attr('hidden', true);
+            return;
+        }
+        const timeline = animationInfo.timeline;
+        const frameIndex = timeline.currentFrame;
+        const segmentIndex = findAnimationSegmentIndex(frameIndex);
+        timeline.activeSegmentIndex = segmentIndex;
+        const segment = timeline.segments[segmentIndex];
+        const nextSegment = timeline.segments[segmentIndex + 1];
+        const endFrame = nextSegment ? nextSegment.startFrame - 1 : animationFrames.length - 1;
+        const alreadySplit = timeline.segments.some(function (candidate) {
+            return candidate.startFrame === frameIndex;
+        });
+
+        $animationTimeline.removeAttr('hidden');
+        $animationSlider
+            .attr('max', animationFrames.length - 1)
+            .val(frameIndex)
+            .prop('disabled', restoringHistory || isExporting);
+        $('#animation-frame-label').text(
+            `Frame ${frameIndex + 1} of ${animationFrames.length} · ` +
+            `${(getAnimationFrameStartTime(frameIndex) / 1000).toFixed(1)}s`
+        );
+        $('#animation-range-label').text(
+            segment.startFrame === endFrame
+                ? `Editing frame ${segment.startFrame + 1}`
+                : `Editing frames ${segment.startFrame + 1}–${endFrame + 1}`
+        );
+        $animationSplit.prop('disabled', alreadySplit || restoringHistory || isExporting);
+
+        const markerContainer = $('#animation-segment-markers').empty();
+        timeline.segments.forEach(function (candidate) {
+            const percent = animationFrames.length <= 1 ? 0 :
+                candidate.startFrame * 100 / (animationFrames.length - 1);
+            $('<span class="animation-segment-marker"></span>')
+                .css('left', `${percent}%`)
+                .appendTo(markerContainer);
+        });
+    }
+
+    function seekAnimationFrame(frameIndex) {
+        if (!animationInfo || !animationFrames || restoringHistory || isExporting) {
+            updateAnimationTimeline();
+            return;
+        }
+        const timeline = animationInfo.timeline;
+        const oldSegmentIndex = timeline.activeSegmentIndex;
+        flushScheduledHistory();
+        captureActiveSegmentState();
+        timeline.currentFrame = Math.max(
+            0, Math.min(animationFrames.length - 1, Number(frameIndex))
+        );
+        const newSegmentIndex = findAnimationSegmentIndex(timeline.currentFrame);
+        timeline.activeSegmentIndex = newSegmentIndex;
+        animationFramePlayer.showFrame(timeline.currentFrame);
+        if (newSegmentIndex !== oldSegmentIndex) {
+            loadEditorState(
+                timeline.segments[newSegmentIndex].editorState,
+                updateAnimationTimeline
+            );
+        }
+        else {
+            updateAnimationTimeline();
+        }
+    }
+
+    function splitAnimationTimeline() {
+        if (!animationInfo || !animationFrames || restoringHistory || isExporting) {
+            return;
+        }
+        const timeline = animationInfo.timeline;
+        const frameIndex = timeline.currentFrame;
+        if (timeline.segments.some(segment => segment.startFrame === frameIndex)) {
+            return;
+        }
+        flushScheduledHistory();
+        captureActiveSegmentState();
+        const sourceIndex = findAnimationSegmentIndex(frameIndex);
+        timeline.segments.splice(sourceIndex + 1, 0, {
+            startFrame: frameIndex,
+            editorState: cloneEditorState(timeline.segments[sourceIndex].editorState),
+        });
+        timeline.activeSegmentIndex = sourceIndex + 1;
+        recordHistoryState();
+        updateAnimationTimeline();
+    }
+
+    $animationSlider.off('input').on('input', function () {
+        seekAnimationFrame(parseInt(this.value, 10));
+    });
+    $animationSplit.off('click').on('click', splitAnimationTimeline);
 
     editorCanvas.on({
         'object:added': scheduleCanvasHistory,
@@ -283,6 +483,10 @@ function processMeme(memeInfo) {
             activeAnimationEncoder = undefined;
         }
         animationFrames = undefined;
+        $animationSlider.off('input');
+        $animationSplit.off('click');
+        $('#animation-segment-markers').empty();
+        $animationTimeline.attr('hidden', true);
         $animationStatus.attr('hidden', true).empty();
         editorCanvas.dispose();
         $('#meme-canvas').remove();
@@ -588,7 +792,7 @@ function processMeme(memeInfo) {
                     `${animationInfo.frameCount} frames · ` +
                     `${formatAnimationDuration(animationInfo.duration)}`
                 );
-                animationFramePlayer.play();
+                updateAnimationTimeline();
                 if (sizePlan.outputWasReduced) {
                     showAlert(
                         `Large ${animationInfo.formatLabel}: output will be resized from ` +
@@ -812,23 +1016,47 @@ function processMeme(memeInfo) {
         }, 1000);
     }
 
-    function renderAnimationSegmentOverlay() {
-        const backgroundImage = editorCanvas.backgroundImage;
-        editorCanvas.backgroundImage = null;
-        try {
-            editorCanvas.renderAll();
-            animationInfo.timeline.segments[0].editorState = editorCanvas.toJSON();
-            return editorCanvas.toCanvasElement(sizePlan.exportMultiplier);
+    function renderSerializedOverlay(editorState) {
+        return new Promise(function (resolve, reject) {
+            const overlayEditor = new fabric.StaticCanvas(null, {
+                width: sizePlan.workingWidth,
+                height: sizePlan.workingHeight,
+                renderOnAddRemove: false,
+            });
+            try {
+                overlayEditor.loadFromJSON({ objects: hydrateEditorState(editorState) }, function () {
+                    try {
+                        overlayEditor.renderAll();
+                        const overlay = overlayEditor.toCanvasElement(sizePlan.exportMultiplier);
+                        overlayEditor.dispose();
+                        resolve(overlay);
+                    }
+                    catch (error) {
+                        overlayEditor.dispose();
+                        reject(error);
+                    }
+                });
+            }
+            catch (error) {
+                overlayEditor.dispose();
+                reject(error);
+            }
+        });
+    }
+
+    async function renderAnimationSegmentOverlays() {
+        captureActiveSegmentState();
+        const overlays = [];
+        for (const segment of animationInfo.timeline.segments) {
+            overlays.push(await renderSerializedOverlay(segment.editorState));
         }
-        finally {
-            editorCanvas.backgroundImage = backgroundImage;
-            editorCanvas.renderAll();
-        }
+        return overlays;
     }
 
     async function exportAnimatedImage() {
         animationFramePlayer.pause();
-        const overlayCanvas = renderAnimationSegmentOverlay();
+        flushScheduledHistory();
+        const segmentOverlays = await renderAnimationSegmentOverlays();
         const sourceCanvas = document.createElement('canvas');
         sourceCanvas.width = animationInfo.metadata.width;
         sourceCanvas.height = animationInfo.metadata.height;
@@ -845,6 +1073,7 @@ function processMeme(memeInfo) {
         );
         await activeAnimationEncoder.initialize();
 
+        let segmentIndex = 0;
         for (let frameIndex = 0; frameIndex < animationFrames.length; frameIndex++) {
             if (editorDestroyed || canvas !== editorCanvas) {
                 throw new Error(`The ${animationInfo.formatLabel} operation was cancelled.`);
@@ -857,7 +1086,11 @@ function processMeme(memeInfo) {
             outputContext.drawImage(
                 sourceCanvas, 0, 0, outputCanvas.width, outputCanvas.height
             );
-            outputContext.drawImage(overlayCanvas, 0, 0);
+            while (segmentIndex + 1 < animationInfo.timeline.segments.length &&
+                animationInfo.timeline.segments[segmentIndex + 1].startFrame <= frameIndex) {
+                segmentIndex++;
+            }
+            outputContext.drawImage(segmentOverlays[segmentIndex], 0, 0);
             const pixels = outputContext.getImageData(
                 0, 0, outputCanvas.width, outputCanvas.height
             ).data;
@@ -884,6 +1117,9 @@ function processMeme(memeInfo) {
 
         isExporting = true;
         updateGenerateButton();
+        if (animationInfo) {
+            updateAnimationTimeline();
+        }
 
         if (animationInfo) {
             exportAnimatedImage().catch(function (error) {
@@ -905,7 +1141,8 @@ function processMeme(memeInfo) {
                         `${animationInfo.frameCount} frames · ` +
                         `${formatAnimationDuration(animationInfo.duration)}`
                     );
-                    animationFramePlayer.play();
+                    animationFramePlayer.showFrame(animationInfo.timeline.currentFrame);
+                    updateAnimationTimeline();
                     updateGenerateButton();
                 }
             });

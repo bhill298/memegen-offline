@@ -78,6 +78,21 @@
                 <div class="meme-preview">
                     <div class="fabric-canvas-wrapper" id="meme-canvas-wrapper" tabindex=1000></div>
                 </div>
+                <div id="animation-timeline" class="animation-timeline" hidden>
+                    <div class="animation-timeline-readout">
+                        <span id="animation-frame-label">Frame 1 of 1 · 0.0s</span>
+                        <span id="animation-range-label">Editing frame 1</span>
+                    </div>
+                    <div class="animation-slider-container">
+                        <input type="range" id="animation-frame-slider" min="0" max="0"
+                            value="0" step="1" aria-label="Animation frame">
+                        <div id="animation-segment-markers" aria-hidden="true"></div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-info"
+                        id="animation-split" title="Split the timeline at this frame." disabled>
+                        Start Changes Here
+                    </button>
+                </div>
                 <div id="animation-status" class="animation-status text-center" hidden></div>
             </div>
             <div class="col-md-6">

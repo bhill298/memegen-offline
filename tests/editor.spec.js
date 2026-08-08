@@ -39,6 +39,22 @@ async function tooManyFramesGifBuffer() {
   return Buffer.from(await encodeGif({ width: 1, height: 1, frames }));
 }
 
+async function segmentedGifBuffer() {
+  const width = 64;
+  const height = 48;
+  return Buffer.from(await encodeGif({
+    width,
+    height,
+    looped: true,
+    frames: [
+      { data: solidFrame(width, height, 220, 20, 20), delay: 80 },
+      { data: solidFrame(width, height, 20, 180, 40), delay: 90 },
+      { data: solidFrame(width, height, 20, 40, 220), delay: 100 },
+      { data: solidFrame(width, height, 220, 180, 20), delay: 110 },
+    ],
+  }));
+}
+
 async function openEditor(page) {
   await page.goto('/');
   await expect(page.locator('.memes-container img').first()).toBeVisible();
@@ -58,6 +74,18 @@ async function openGifEditor(page) {
   await expect(page.locator('#generate-meme')).toHaveText('Generate GIF');
   await expect(page.locator('#generate-meme')).toBeEnabled();
   await expect(page.locator('#animation-status')).toContainText('2 frames');
+}
+
+async function openSegmentedGifEditor(page) {
+  await page.goto('/');
+  await expect(page.locator('.memes-container img').first()).toBeVisible();
+  await page.locator('#meme-input').setInputFiles({
+    name: 'segmented-test.gif',
+    mimeType: 'image/gif',
+    buffer: await segmentedGifBuffer(),
+  });
+  await expect(page.locator('#generate-meme')).toBeEnabled();
+  await expect(page.locator('#animation-status')).toContainText('4 frames');
 }
 
 async function animatedApngBuffer(page) {
@@ -265,26 +293,26 @@ test('export preserves the template resolution', async ({ page }) => {
   expect(png.readUInt32BE(20)).toBe(123);
 });
 
-test('an animated GIF previews multiple decoded frames', async ({ page }) => {
+test('an animated GIF is paused and can seek to exact frames', async ({ page }) => {
   await openGifEditor(page);
   expect(await page.evaluate(() => canvas.animationTimeline.segments)).toEqual([
-    { startFrame: 0, editorState: null },
+    { startFrame: 0, editorState: [] },
   ]);
-  const observedColors = await page.evaluate(() => new Promise(resolve => {
-    const colors = new Set();
-    const sample = () => {
-      const frameCanvas = canvas.backgroundImage.getElement();
-      const pixel = frameCanvas.getContext('2d').getImageData(0, 0, 1, 1).data;
-      colors.add(`${pixel[0]},${pixel[1]},${pixel[2]}`);
-    };
-    sample();
-    const timer = setInterval(sample, 25);
-    setTimeout(() => {
-      clearInterval(timer);
-      resolve([...colors]);
-    }, 450);
-  }));
-  expect(observedColors.length).toBeGreaterThan(1);
+  const readColor = () => page.evaluate(() => {
+    const frameCanvas = canvas.backgroundImage.getElement();
+    return Array.from(frameCanvas.getContext('2d').getImageData(0, 0, 1, 1).data);
+  });
+  const firstColor = await readColor();
+  await page.waitForTimeout(350);
+  expect(await readColor()).toEqual(firstColor);
+  await expect(page.locator('#animation-frame-label')).toContainText('Frame 1 of 2');
+  await expect(page.locator('#animation-range-label')).toHaveText('Editing frames 1–2');
+  await expect(page.locator('#animation-split')).toBeDisabled();
+
+  await page.locator('#animation-frame-slider').fill('1');
+  await expect.poll(readColor).not.toEqual(firstColor);
+  await expect(page.locator('#animation-frame-label')).toContainText('Frame 2 of 2');
+  await expect(page.locator('#animation-split')).toBeEnabled();
 });
 
 test('GIF export preserves frames and timing and applies one overlay to every frame', async ({ page }) => {
@@ -339,6 +367,7 @@ test('leaving a GIF editor restores the unchanged static editor path', async ({ 
   await page.locator('.back-btn .btn').click();
   await expect(page.locator('.canvas-container')).toHaveCount(0);
   await expect(page.locator('#animation-status')).toBeHidden();
+  await expect(page.locator('#animation-timeline')).toBeHidden();
 
   await page.locator('#meme-input').setInputFiles(blankImage);
   await expect(page.locator('#generate-meme')).toHaveText('Generate Meme');
@@ -352,21 +381,15 @@ for (const format of ['APNG', 'WebP']) {
     page.on('pageerror', error => pageErrors.push(error.message));
     await openAdditionalAnimationEditor(page, format);
 
-    const observedColors = await page.evaluate(() => new Promise(resolve => {
-      const colors = new Set();
-      const sample = () => {
-        const frameCanvas = canvas.backgroundImage.getElement();
-        const pixel = frameCanvas.getContext('2d').getImageData(0, 0, 1, 1).data;
-        colors.add(`${pixel[0]},${pixel[1]},${pixel[2]}`);
-      };
-      sample();
-      const timer = setInterval(sample, 25);
-      setTimeout(() => {
-        clearInterval(timer);
-        resolve([...colors]);
-      }, 450);
-    }));
-    expect(observedColors.length).toBeGreaterThan(1);
+    const firstColor = await page.evaluate(() => {
+      const frameCanvas = canvas.backgroundImage.getElement();
+      return Array.from(frameCanvas.getContext('2d').getImageData(0, 0, 1, 1).data);
+    });
+    await page.locator('#animation-frame-slider').fill('1');
+    await expect.poll(() => page.evaluate(() => {
+      const frameCanvas = canvas.backgroundImage.getElement();
+      return Array.from(frameCanvas.getContext('2d').getImageData(0, 0, 1, 1).data);
+    })).not.toEqual(firstColor);
 
     await page.locator('#add-text').click();
     await waitForHistory(page);
@@ -422,3 +445,117 @@ for (const format of ['APNG', 'WebP']) {
     expect(pageErrors).toEqual([]);
   });
 }
+
+test('a timeline split can be undone and redone', async ({ page }) => {
+  await openSegmentedGifEditor(page);
+  await page.locator('#animation-frame-slider').fill('2');
+  await page.locator('#animation-split').click();
+  expect(await page.evaluate(() => canvas.animationTimeline.segments.map(s => s.startFrame)))
+    .toEqual([0, 2]);
+  await expect(page.locator('.animation-segment-marker')).toHaveCount(2);
+  await expect(page.locator('#animation-range-label')).toHaveText('Editing frames 3–4');
+
+  await page.locator('#canvas-undo').click();
+  await expect.poll(() => page.evaluate(() =>
+    canvas.animationTimeline.segments.map(segment => segment.startFrame)
+  )).toEqual([0]);
+  await expect(page.locator('#animation-range-label')).toHaveText('Editing frames 1–4');
+
+  await page.locator('#canvas-redo').click();
+  await expect.poll(() => page.evaluate(() =>
+    canvas.animationTimeline.segments.map(segment => segment.startFrame)
+  )).toEqual([0, 2]);
+});
+
+test('segments can be created and edited back-to-front without changing later states', async ({ page }) => {
+  await openSegmentedGifEditor(page);
+  await page.locator('#add-text').click();
+  await waitForHistory(page);
+
+  await page.locator('#animation-frame-slider').fill('3');
+  await page.locator('#animation-split').click();
+  await page.locator('#add-text').click();
+  await page.locator('#add-text').click();
+  await waitForHistory(page);
+
+  await page.locator('#animation-frame-slider').fill('1');
+  await expect.poll(async () => (await canvasObjects(page)).length).toBe(1);
+  await page.locator('#animation-split').click();
+  await page.locator('#add-text').click();
+  await waitForHistory(page);
+  await expect.poll(() => page.evaluate(() =>
+    canvas.animationTimeline.segments[1].editorState.length
+  )).toBe(2);
+
+  expect(await page.evaluate(() => canvas.animationTimeline.segments.map(segment => ({
+    startFrame: segment.startFrame,
+    objectCount: segment.editorState.length,
+  })))).toEqual([
+    { startFrame: 0, objectCount: 1 },
+    { startFrame: 1, objectCount: 2 },
+    { startFrame: 3, objectCount: 3 },
+  ]);
+
+  for (const [frame, objectCount] of [[0, 1], [2, 2], [3, 3]]) {
+    await page.locator('#animation-frame-slider').fill(String(frame));
+    await expect.poll(async () => (await canvasObjects(page)).length).toBe(objectCount);
+  }
+
+  await page.locator('#animation-frame-slider').fill('2');
+  await page.locator('#add-text').click();
+  await expect.poll(() => page.evaluate(() =>
+    canvas.animationTimeline.segments[1].editorState.length
+  )).toBe(3);
+  await page.locator('#canvas-undo').click();
+  await expect.poll(async () => (await canvasObjects(page)).length).toBe(2);
+  expect(await page.evaluate(() =>
+    canvas.animationTimeline.segments[2].editorState.length
+  )).toBe(3);
+});
+
+test('animated export applies each segment only within its frame range', async ({ page }) => {
+  await openSegmentedGifEditor(page);
+  await page.locator('#animation-frame-slider').fill('2');
+  await page.locator('#animation-split').click();
+  await page.locator('#add-text').click();
+  await waitForHistory(page);
+
+  const downloadPromise = page.waitForEvent('download');
+  await page.locator('#generate-meme').click();
+  const download = await downloadPromise;
+  const stream = await download.createReadStream();
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  const output = Buffer.concat(chunks);
+  const exactOutput = output.buffer.slice(output.byteOffset, output.byteOffset + output.byteLength);
+  const metadata = decodeGif(exactOutput);
+  const frames = decodeGifFrames(exactOutput, { gif: metadata });
+  const colorCounts = frames.map(frame => {
+    const colors = new Set();
+    for (let index = 0; index < frame.data.length; index += 4) {
+      colors.add(`${frame.data[index]},${frame.data[index + 1]},${frame.data[index + 2]}`);
+    }
+    return colors.size;
+  });
+
+  expect(colorCounts.slice(0, 2)).toEqual([1, 1]);
+  expect(colorCounts[2]).toBeGreaterThan(1);
+  expect(colorCounts[3]).toBeGreaterThan(1);
+});
+
+test('added image overlays remain local to their animation segment', async ({ page }) => {
+  await openSegmentedGifEditor(page);
+  await page.locator('#animation-frame-slider').fill('2');
+  await page.locator('#animation-split').click();
+  await page.locator('#add-image').setInputFiles(blankImage);
+  await expect.poll(async () =>
+    (await canvasObjects(page)).filter(object => object.type === 'image').length
+  ).toBe(1);
+
+  await page.locator('#animation-frame-slider').fill('0');
+  await expect.poll(async () => (await canvasObjects(page)).length).toBe(0);
+  await page.locator('#animation-frame-slider').fill('3');
+  await expect.poll(async () =>
+    (await canvasObjects(page)).filter(object => object.type === 'image').length
+  ).toBe(1);
+});
