@@ -239,6 +239,22 @@ function scheduleMemeSearch(searchBoxContents, timeout=500) {
 
 var __lastMemeSearchTerm = "";
 var __lastAndSelected = document.getElementById("meme-search-option-and").checked;
+
+function getMemeSearchText(name) {
+    let imgStr = name.toLowerCase();
+    // If it starts with a number (used for sorting), ignore it in the search.
+    const index = imgStr.indexOf("-");
+    if (index !== -1 && !isNaN(imgStr.substr(0, index))) {
+        imgStr = imgStr.substr(index + 1);
+    }
+    // These extensions are used for animated gallery templates. The plural
+    // "gifs" tag intentionally also matches the substring search "gif".
+    if (/\.(gif|webp|apng)$/.test(imgStr)) {
+        imgStr += " animated animation gifs";
+    }
+    return imgStr;
+}
+
 function doMemeSearch(searchBoxContents) {
     searchBoxContents = searchBoxContents.trim();
     // otherwise OR
@@ -263,13 +279,7 @@ function doMemeSearch(searchBoxContents) {
             }
             let match = true;
             for (const term of terms) {
-                // filter the image string to search on
-                let imgStr = name.toLowerCase();
-                // if it starts with a number (used for sorting), ignore it in the search
-                let index = imgStr.indexOf("-");
-                if (index !== -1 && !isNaN(imgStr.substr(0, index))) {
-                    imgStr = imgStr.substr(index + 1);
-                }
+                const imgStr = getMemeSearchText(name);
                 if (term.length > 0 && imgStr.includes(term)) {
                     if (!andSelected) {
                         names.push(name);

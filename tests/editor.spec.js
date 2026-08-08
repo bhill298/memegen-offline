@@ -214,6 +214,40 @@ test('can repeatedly enter and leave the editor without retaining a canvas', asy
   expect(pageErrors).toEqual([]);
 });
 
+test('animation aliases find GIF, WebP, and APNG gallery entries', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.memes-container img').first()).toBeVisible();
+  const results = await page.evaluate(() => {
+    __imgNames.splice(0, __imgNames.length,
+      '2014-moving-template.webp',
+      '2015-classic-template.gif',
+      '2016-animated-png.apng',
+      '2017-static-template.png'
+    );
+    const search = term => {
+      __lastMemeSearchTerm = '';
+      doMemeSearch(term);
+      return Array.from(document.querySelectorAll('.memes-container img'))
+        .map(image => decodeURIComponent(new URL(image.src).pathname.split('/').pop()));
+    };
+    return {
+      animated: search('animated'),
+      animation: search('animation'),
+      gif: search('gif'),
+      gifs: search('gifs'),
+    };
+  });
+  const expected = [
+    '2014-moving-template.webp',
+    '2015-classic-template.gif',
+    '2016-animated-png.apng',
+  ];
+  expect(results.animated).toEqual(expected);
+  expect(results.animation).toEqual(expected);
+  expect(results.gif).toEqual(expected);
+  expect(results.gifs).toEqual(expected);
+});
+
 test('undo and redo restore edits and discard an abandoned redo branch', async ({ page }) => {
   await openEditor(page);
   await page.locator('#add-text').click();
