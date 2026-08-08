@@ -384,7 +384,7 @@ test('GIF conversion warning appears only for non-GIF sources exported as GIF', 
   await page.locator('#animation-output-format').selectOption('gif');
   await expect(page.locator('#animation-gif-warning')).toBeVisible();
   await expect(page.locator('#animation-gif-warning')).toContainText(
-    'Converting to GIF may reduce colors and transparency quality.'
+    'Converting to GIF may reduce colors, transparency quality, and timing precision.'
   );
   const withWarning = await controlCenters();
   expect(Math.abs(beforeWarning.generate - beforeWarning.quality)).toBeLessThan(1);
