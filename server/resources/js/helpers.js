@@ -183,12 +183,17 @@ function createImgName() {
 
 // Show alert message
 function showAlert(message) {
+    const $message = $('<strong></strong>').text(message);
+    const $paragraph = $('<p></p>')
+        .addClass('text-center mb-0')
+        .append($message);
     $('.alert-container')
-        .html(`<p class="text-center mb-0"><strong>${message}</strong></p>`)
+        .empty()
+        .append($paragraph)
         .fadeIn('normal', function () {
             setTimeout(function () {
                 $('.alert-container').fadeOut('normal', function () {
-                    $('.alert-container').html('');
+                    $('.alert-container').empty();
                 });
             }, 3000);
         });
