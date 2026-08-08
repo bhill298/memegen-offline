@@ -1188,6 +1188,9 @@ function processMeme(memeInfo) {
         try {
             const exportCanvas = editorCanvas.toCanvasElement(sizePlan.exportMultiplier);
             exportCanvas.toBlob(function (blob) {
+                if (editorDestroyed || canvas !== editorCanvas) {
+                    return;
+                }
                 if (!blob) {
                     showAlert('Error! The meme could not be generated.');
                 }
@@ -1196,9 +1199,7 @@ function processMeme(memeInfo) {
                 }
 
                 isExporting = false;
-                if (canvas === editorCanvas) {
-                    updateGenerateButton();
-                }
+                updateGenerateButton();
             }, 'image/png');
         }
         catch (error) {

@@ -658,6 +658,28 @@ test('export preserves the template resolution', async ({ page }) => {
   expect(png.readUInt32BE(20)).toBe(123);
 });
 
+test('leaving the editor cancels a pending static export', async ({ page }) => {
+  await openEditor(page);
+  await page.evaluate(() => {
+    const originalToBlob = HTMLCanvasElement.prototype.toBlob;
+    HTMLCanvasElement.prototype.toBlob = function (callback, ...args) {
+      originalToBlob.call(this, blob => setTimeout(() => callback(blob), 600), ...args);
+    };
+  });
+
+  let downloadStarted = false;
+  page.on('download', () => {
+    downloadStarted = true;
+  });
+  await page.locator('#generate-meme').click();
+  await page.locator('.back-btn .btn').click();
+  await expect(page.locator('.choice-section')).toBeVisible();
+  await page.waitForTimeout(300);
+
+  expect(downloadStarted).toBe(false);
+  await expect(page.locator('.alert-container')).toBeHidden();
+});
+
 test('an animated GIF is paused and can seek to exact frames', async ({ page }) => {
   await openGifEditor(page);
   expect(await page.evaluate(() => canvas.animationTimeline.segments)).toEqual([
