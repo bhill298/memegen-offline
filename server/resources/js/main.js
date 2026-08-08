@@ -3,6 +3,7 @@ var canvas;
 var keyMap;
 var srcObj;
 var numPastes;
+var destroyMemeEditor = function () {};
 
 function deleteSelected(allowDeleteWhenEditing = false) {
     if (canvas) {
@@ -33,7 +34,7 @@ function copySelected() {
 // Meme process
 function processMeme(memeInfo) {
     // Responsive canvas
-    $(window).resize(resizeCanvas);
+    $(window).off('resize.memeEditor').on('resize.memeEditor', resizeCanvas);
     function resizeCanvas() {
         var width = $('.fabric-canvas-wrapper').width();
         $('.canvas-container').css('width', width);
@@ -82,6 +83,24 @@ function processMeme(memeInfo) {
         selection: false,
         allowTouchScrolling: true
     });
+
+    const editorCanvas = canvas;
+    var hoverAnimationRequestId;
+    destroyMemeEditor = function () {
+        $(window).off('.memeEditor');
+        if (hoverAnimationRequestId !== undefined) {
+            cancelAnimationFrame(hoverAnimationRequestId);
+        }
+        editorCanvas.dispose();
+        $('#meme-canvas').remove();
+        if (canvas === editorCanvas) {
+            canvas = undefined;
+        }
+        keyMap = undefined;
+        srcObj = undefined;
+        numPastes = undefined;
+        destroyMemeEditor = function () {};
+    };
 
     keyMap = new Map();
     srcObj = null;
@@ -359,8 +378,6 @@ function processMeme(memeInfo) {
         'selection:updated': updateInputs,
         'selection:cleared': enableTextMethods,
     });
-
-    var hoverAnimationRequestId = undefined;
 
     function updateBrushCursor(o, ts) {
         hoverAnimationRequestId = undefined;

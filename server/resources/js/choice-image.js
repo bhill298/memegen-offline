@@ -75,7 +75,7 @@ $(function () {
     // Event: Back button click
     $('.back-btn .btn').on('click', function () {
         $('.edit-section').fadeOut('normal', function () {
-            $('.canvas-container').remove();
+            destroyMemeEditor();
             $('.choice-section').fadeIn();
             enableTextMethods();
             // force the grid to reflow to push things after the grid to the bottom
