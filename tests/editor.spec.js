@@ -749,6 +749,26 @@ test('GIF safety limits reject excessive frame counts before opening the editor'
   await expect(page.locator('.canvas-container')).toHaveCount(0);
 });
 
+test('animation safety limits include decoded source and output frame memory', async ({ page }) => {
+  await page.goto('/');
+  const message = await page.evaluate(() => {
+    const metadata = { width: 1024, height: 1024, frameCount: 30 };
+    const sizePlan = createAnimatedImageSizePlan(metadata.width, metadata.height);
+    try {
+      enforceAnimationLimits(metadata, 'GIF', sizePlan);
+      return '';
+    }
+    catch (error) {
+      return error.message;
+    }
+  });
+
+  expect(message).toBe(
+    'This GIF needs at least 240 MB for decoded source and output frames; ' +
+    'the memory safety limit is 192 MB.'
+  );
+});
+
 test('the animation file-size limit does not reject an oversized static PNG', async ({ page }) => {
   await page.goto('/');
   const result = await page.evaluate(async () => {

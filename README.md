@@ -42,10 +42,11 @@ Animation processing runs locally in the browser. The required codecs and
 workers are included under `server/vendors`, so end users do not need Node.js,
 npm, or an internet connection. To keep decoding and export from exhausting browser
 memory, animated images are limited to 50 MB, 300 frames, 4096 pixels per source
-dimension, 4 source megapixels, and 40 million decoded pixel-frames. Output is
-preserved at its original resolution when it is at most 2048 pixels per side
-and 2 megapixels; larger accepted animations are resized without dropping
-frames.
+dimension, 4 source megapixels, 40 million decoded pixel-frames, and an estimated
+192 MB combined RGBA working set for decoded source and full-quality output
+frames. Output is preserved at its original resolution when it is at most 2048
+pixels per side and 2 megapixels; larger accepted animations are resized without
+dropping frames.
 
 ### Firefox WebP downloads
 

@@ -4,6 +4,7 @@ const ANIMATION_LIMITS = Object.freeze({
     maxSourceDimension: 4096,
     maxSourcePixels: 4 * 1024 * 1024,
     maxDecodedPixelFrames: 40 * 1024 * 1024,
+    maxEstimatedRgbaBytes: 192 * 1024 * 1024,
     maxOutputDimension: 2048,
     maxOutputPixels: 2 * 1024 * 1024,
 });
@@ -218,7 +219,7 @@ function inspectAnimation(format, buffer) {
     return parseWebpMetadata(buffer);
 }
 
-function enforceAnimationLimits(metadata, label) {
+function enforceAnimationLimits(metadata, label, sizePlan) {
     const sourcePixels = metadata.width * metadata.height;
     if (metadata.frameCount > ANIMATION_LIMITS.maxFrames) {
         throw new Error(
@@ -237,6 +238,16 @@ function enforceAnimationLimits(metadata, label) {
         throw new Error(
             `This ${label} is too large to decode safely (${metadata.frameCount} frames at ` +
             `${metadata.width} x ${metadata.height}).`
+        );
+    }
+    const outputPixels = sizePlan.outputWidth * sizePlan.outputHeight;
+    const estimatedRgbaBytes = (sourcePixels + outputPixels) * metadata.frameCount * 4;
+    if (estimatedRgbaBytes > ANIMATION_LIMITS.maxEstimatedRgbaBytes) {
+        const estimatedMiB = Math.ceil(estimatedRgbaBytes / (1024 * 1024));
+        const limitMiB = ANIMATION_LIMITS.maxEstimatedRgbaBytes / (1024 * 1024);
+        throw new Error(
+            `This ${label} needs at least ${estimatedMiB} MB for decoded source and output ` +
+            `frames; the memory safety limit is ${limitMiB} MB.`
         );
     }
 }
@@ -260,10 +271,11 @@ async function prepareAnimatedMemeInfo(imgInfo) {
         throw new Error(`${formatInfo.label} files are limited to 50 MB.`);
     }
 
-    enforceAnimationLimits(metadata, formatInfo.label);
+    const sizePlan = createAnimatedImageSizePlan(metadata.width, metadata.height);
+    enforceAnimationLimits(metadata, formatInfo.label, sizePlan);
     imgInfo.width = metadata.width;
     imgInfo.height = metadata.height;
-    imgInfo.sizePlan = createAnimatedImageSizePlan(metadata.width, metadata.height);
+    imgInfo.sizePlan = sizePlan;
     imgInfo.animationInfo = {
         format,
         formatLabel: formatInfo.label,
