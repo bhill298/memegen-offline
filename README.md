@@ -32,12 +32,11 @@ Animated GIF, WebP, and PNG (APNG) templates can be selected from the gallery or
 uploaded. Text, drawings, and added images are applied to every frame. Output
 defaults to the template's format, but GIF, WebP, and APNG can be selected in
 the editor. Export preserves source timing and loop behavior. Animated
-templates remain paused in the editor and have a
-frame-accurate timeline beneath the image. **Start Changes Here** creates an
-editable segment beginning at the selected frame; each segment keeps its own
-complete text, drawing, and image-overlay state. If no split is created, edits
-continue to apply to the entire animation. The behavior and intentionally
-deferred features are described in `ANIMATED_TIMELINE_PLAN.md`.
+templates remain paused in the editor and have a frame-accurate timeline
+beneath the image. **Start Changes Here** creates an editable segment beginning
+at the selected frame; each segment keeps its own complete text, drawing, and
+image-overlay state. If no split is created, edits continue to apply to the
+entire animation.
 
 Animation processing runs locally in the browser. The required codecs and
 workers are included under `server/vendors`, so end users do not need Node.js,
