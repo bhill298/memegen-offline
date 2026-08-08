@@ -1,5 +1,7 @@
-server/img/memes/*
+/server/img/memes/*
 node_modules/
 playwright-report/
 test-results/
 .worktrees/
+/tmp
+/server/resources/fonts/*
