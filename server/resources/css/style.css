@@ -135,6 +135,10 @@ body {
     flex-wrap: wrap;
 }
 
+.animation-quality-controls {
+    position: relative;
+}
+
 .animation-quality-controls:not([hidden]) {
     display: block;
 }
@@ -147,7 +151,10 @@ body {
 .animation-gif-warning {
     color: #856404;
     font-size: 0.8rem;
-    margin-top: 0.3rem;
+    left: 0;
+    position: absolute;
+    top: calc(100% + 0.3rem);
+    white-space: nowrap;
 }
 
 .animation-timeline-readout {
@@ -160,24 +167,61 @@ body {
 }
 
 .animation-slider-container {
+    --animation-slider-thumb-size: 16px;
     position: relative;
     margin: 0.55rem 0 0.45rem;
     height: 1.65rem;
 }
 
 #animation-frame-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+    height: 1.4rem;
+    padding: 0;
     position: relative;
     z-index: 2;
     width: 100%;
     margin: 0;
 }
 
+#animation-frame-slider::-webkit-slider-runnable-track {
+    background: #dee2e6;
+    border-radius: 3px;
+    height: 6px;
+}
+
+#animation-frame-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    background: #007bff;
+    border: 0;
+    border-radius: 50%;
+    height: var(--animation-slider-thumb-size);
+    margin-top: -5px;
+    width: var(--animation-slider-thumb-size);
+}
+
+#animation-frame-slider::-moz-range-track {
+    background: #dee2e6;
+    border-radius: 3px;
+    height: 6px;
+}
+
+#animation-frame-slider::-moz-range-thumb {
+    background: #007bff;
+    border: 0;
+    border-radius: 50%;
+    height: var(--animation-slider-thumb-size);
+    width: var(--animation-slider-thumb-size);
+}
+
 #animation-segment-markers {
     position: absolute;
     z-index: 3;
     top: 0;
-    left: 0.5rem;
-    right: 0.5rem;
+    left: calc(var(--animation-slider-thumb-size) / 2);
+    right: calc(var(--animation-slider-thumb-size) / 2);
     height: 1.4rem;
     pointer-events: none;
 }
@@ -188,7 +232,7 @@ body {
     height: 1.35rem;
     border-radius: 1px;
     background: #5b2a72;
-    transform: translateX(-1px);
+    transform: translateX(-50%);
     box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.9);
 }
 

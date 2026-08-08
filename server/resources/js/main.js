@@ -173,6 +173,7 @@ function processMeme(memeInfo) {
 
     function updateAnimationOutputOptions() {
         const outputFormat = $animationOutputFormat.val();
+        $animationQuality.val(outputFormat === 'webp' ? 'balanced' : 'full');
         $animationGifWarning.attr(
             'hidden', !animationInfo || animationInfo.format === 'gif' || outputFormat !== 'gif'
         );

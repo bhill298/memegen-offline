@@ -320,9 +320,26 @@ test('quality controls appear only for animations and explain the APNG exception
   await expect(page.locator('#animation-gif-warning')).toBeHidden();
   await expect(page.locator('#animation-quality')).toHaveAttribute(
     'title',
-    'Lower quality reduces file size and encoding time. For APNG, it reduces file size only.'
+    'Lower quality reduces file size and encoding time. For APNG, it reduces file size only. Full-quality WebP encoding is slow.'
+  );
+  await expect(page.locator('label[for="animation-quality"]')).toHaveAttribute(
+    'title',
+    'Lower quality reduces file size and encoding time. For APNG, it reduces file size only. Full-quality WebP encoding is slow.'
   );
   await expect(page.locator('#animation-quality-help')).toHaveCount(0);
+});
+
+test('WebP defaults to Balanced quality while GIF and APNG default to Full', async ({ page }) => {
+  await openGifEditor(page);
+  await expect(page.locator('#animation-quality')).toHaveValue('full');
+  await page.locator('#animation-output-format').selectOption('webp');
+  await expect(page.locator('#animation-quality')).toHaveValue('balanced');
+  await page.locator('#animation-output-format').selectOption('apng');
+  await expect(page.locator('#animation-quality')).toHaveValue('full');
+
+  await page.locator('.back-btn .btn').click();
+  await openAdditionalAnimationEditor(page, 'WebP');
+  await expect(page.locator('#animation-quality')).toHaveValue('balanced');
 });
 
 test('GIF conversion warning appears only for non-GIF sources exported as GIF', async ({ page }) => {
@@ -332,11 +349,23 @@ test('GIF conversion warning appears only for non-GIF sources exported as GIF', 
   ]);
   await expect(page.locator('#animation-gif-warning')).toBeHidden();
 
+  const controlCenters = async () => page.evaluate(() => {
+    const quality = document.querySelector('#animation-quality').getBoundingClientRect();
+    const generate = document.querySelector('#generate-meme').getBoundingClientRect();
+    return {
+      quality: quality.top + quality.height / 2,
+      generate: generate.top + generate.height / 2,
+    };
+  });
+  const beforeWarning = await controlCenters();
   await page.locator('#animation-output-format').selectOption('gif');
   await expect(page.locator('#animation-gif-warning')).toBeVisible();
   await expect(page.locator('#animation-gif-warning')).toContainText(
     'Converting to GIF may reduce colors and transparency quality.'
   );
+  const withWarning = await controlCenters();
+  expect(Math.abs(beforeWarning.generate - beforeWarning.quality)).toBeLessThan(1);
+  expect(Math.abs(withWarning.generate - withWarning.quality)).toBeLessThan(1);
 
   await page.locator('#animation-output-format').selectOption('webp');
   await expect(page.locator('#animation-gif-warning')).toBeHidden();
@@ -785,6 +814,16 @@ test('a timeline split can be undone and redone', async ({ page }) => {
   await expect(page.locator('.animation-segment-marker').nth(1)).toBeVisible();
   expect((await page.locator('.animation-segment-marker').nth(1).boundingBox()).height)
     .toBeGreaterThan(15);
+  const markerOffset = await page.evaluate(() => {
+    const slider = document.querySelector('#animation-frame-slider').getBoundingClientRect();
+    const marker = document.querySelectorAll('.animation-segment-marker')[1]
+      .getBoundingClientRect();
+    const thumbSize = 16;
+    const expectedCenter = slider.left + thumbSize / 2 +
+      (slider.width - thumbSize) * 2 / 3;
+    return marker.left + marker.width / 2 - expectedCenter;
+  });
+  expect(Math.abs(markerOffset)).toBeLessThan(0.2);
   await expect(page.locator('#animation-range-label')).toHaveText('Editing frames 3–4');
 
   await page.locator('#canvas-undo').click();
