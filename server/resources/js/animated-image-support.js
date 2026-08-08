@@ -135,9 +135,10 @@ function parseApngMetadata(buffer) {
     const view = new DataView(buffer);
     let width;
     let height;
-    let frameCount = 0;
+    let declaredFrameCount;
     let loopCount = 0;
     const delays = [];
+    const frameRects = [];
     for (let offset = 8; offset + 12 <= bytes.length;) {
         const length = view.getUint32(offset);
         if (offset + 12 + length > bytes.length) break;
@@ -148,18 +149,43 @@ function parseApngMetadata(buffer) {
             height = view.getUint32(dataOffset + 4);
         }
         else if (type === 'acTL' && length === 8) {
-            frameCount = view.getUint32(dataOffset);
+            if (declaredFrameCount !== undefined) {
+                throw new Error('The APNG contains more than one animation control chunk.');
+            }
+            declaredFrameCount = view.getUint32(dataOffset);
             loopCount = view.getUint32(dataOffset + 4);
         }
         else if (type === 'fcTL' && length === 26) {
+            frameRects.push({
+                width: view.getUint32(dataOffset + 4),
+                height: view.getUint32(dataOffset + 8),
+                x: view.getUint32(dataOffset + 12),
+                y: view.getUint32(dataOffset + 16),
+            });
             const numerator = view.getUint16(dataOffset + 20);
             const denominator = view.getUint16(dataOffset + 22) || 100;
             delays.push(Math.round(1000 * numerator / denominator));
         }
         offset += 12 + length;
     }
-    if (!width || !height || frameCount <= 1) return undefined;
-    return { width, height, frameCount, loopCount, delays };
+    if (declaredFrameCount === undefined) return undefined;
+    if (!width || !height || declaredFrameCount === 0) {
+        throw new Error('The APNG has invalid animation dimensions or frame count.');
+    }
+    if (frameRects.length !== declaredFrameCount) {
+        throw new Error(
+            `The APNG declares ${declaredFrameCount} frames but contains ` +
+            `${frameRects.length} frame control chunks.`
+        );
+    }
+    frameRects.forEach(function (rect) {
+        if (!rect.width || !rect.height || rect.x + rect.width > width ||
+            rect.y + rect.height > height) {
+            throw new Error('The APNG contains a frame outside its image bounds.');
+        }
+    });
+    if (frameRects.length <= 1) return undefined;
+    return { width, height, frameCount: frameRects.length, loopCount, delays };
 }
 
 function parseWebpMetadata(buffer) {

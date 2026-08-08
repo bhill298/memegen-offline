@@ -791,6 +791,50 @@ test('animation safety limits include decoded source and output frame memory', a
   );
 });
 
+test('APNG inspection rejects inconsistent frame metadata before decoding', async ({ page }) => {
+  await page.goto('/');
+  const apng = await animatedApngBuffer(page);
+  const messages = await page.evaluate(bytes => {
+    function mutateChunk(type, mutate) {
+      const copy = new Uint8Array(bytes);
+      const view = new DataView(copy.buffer);
+      for (let offset = 8; offset + 12 <= copy.length;) {
+        const length = view.getUint32(offset);
+        const chunkType = String.fromCharCode(...copy.subarray(offset + 4, offset + 8));
+        if (chunkType === type) {
+          mutate(view, offset + 8);
+          return copy.buffer;
+        }
+        offset += 12 + length;
+      }
+      throw new Error(`Missing ${type} test chunk.`);
+    }
+    function inspect(buffer) {
+      try {
+        parseApngMetadata(buffer);
+        return '';
+      }
+      catch (error) {
+        return error.message;
+      }
+    }
+
+    return {
+      frameCount: inspect(mutateChunk('acTL', (view, dataOffset) => {
+        view.setUint32(dataOffset, 1);
+      })),
+      frameBounds: inspect(mutateChunk('fcTL', (view, dataOffset) => {
+        view.setUint32(dataOffset + 4, 33);
+      })),
+    };
+  }, Array.from(apng));
+
+  expect(messages).toEqual({
+    frameCount: 'The APNG declares 1 frames but contains 2 frame control chunks.',
+    frameBounds: 'The APNG contains a frame outside its image bounds.',
+  });
+});
+
 test('the animation file-size limit does not reject an oversized static PNG', async ({ page }) => {
   await page.goto('/');
   const result = await page.evaluate(async () => {
