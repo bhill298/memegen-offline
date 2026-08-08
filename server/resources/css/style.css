@@ -129,13 +129,21 @@ body {
     padding: 0.65rem 0.75rem 0.75rem;
 }
 
+.animation-export-actions {
+    align-items: flex-end;
+    flex-wrap: nowrap;
+}
+
 .animation-export-selectors {
+    align-items: flex-end;
     display: flex;
-    align-items: center;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    gap: 0.5rem;
 }
 
 .animation-quality-controls {
+    flex: 1 1 auto;
+    min-width: 0;
     position: relative;
 }
 
@@ -143,9 +151,30 @@ body {
     display: block;
 }
 
+.animation-export-field {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.animation-output-field {
+    flex-grow: 1.35;
+}
+
+.animation-export-field label {
+    display: block;
+    font-size: 0.8rem;
+    line-height: 1;
+}
+
 #animation-quality,
 #animation-output-format {
-    width: auto;
+    width: 100%;
+}
+
+.animation-export-actions #generate-meme {
+    flex: 0 0 8.5rem;
+    white-space: nowrap;
+    width: 8.5rem;
 }
 
 .animation-gif-warning {

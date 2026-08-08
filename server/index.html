@@ -238,22 +238,25 @@
                         </div>
                     </div>
                 </div>
-                <div class="mb-4 mt-3 d-flex align-items-center flex-wrap">
+                <div class="mb-4 mt-3 d-flex animation-export-actions">
                     <div id="animation-quality-controls" class="animation-quality-controls mr-2" hidden>
                         <div class="animation-export-selectors">
-                            <label for="animation-output-format" class="mb-0 mr-1">Output</label>
-                            <select id="animation-output-format"
-                                class="form-control form-control-sm mr-2"></select>
-                            <label for="animation-quality" class="mb-0 mr-1"
-                                title="Lower quality reduces file size and encoding time. For APNG, it reduces file size only. Full-quality WebP encoding is slow.">
-                                Quality
-                            </label>
-                            <select id="animation-quality" class="form-control form-control-sm"
-                                title="Lower quality reduces file size and encoding time. For APNG, it reduces file size only. Full-quality WebP encoding is slow.">
-                                <option value="low">Low</option>
-                                <option value="balanced">Balanced</option>
-                                <option value="full" selected>Full</option>
-                            </select>
+                            <div class="animation-export-field animation-output-field">
+                                <label for="animation-output-format" class="mb-1">Output</label>
+                                <select id="animation-output-format" class="form-control"></select>
+                            </div>
+                            <div class="animation-export-field">
+                                <label for="animation-quality" class="mb-1"
+                                    title="Lower quality reduces file size and encoding time. For APNG, it reduces file size only. Full-quality WebP encoding is slow.">
+                                    Quality
+                                </label>
+                                <select id="animation-quality" class="form-control"
+                                    title="Lower quality reduces file size and encoding time. For APNG, it reduces file size only. Full-quality WebP encoding is slow.">
+                                    <option value="low">Low</option>
+                                    <option value="balanced">Balanced</option>
+                                    <option value="full" selected>Full</option>
+                                </select>
+                            </div>
                         </div>
                         <div id="animation-gif-warning" class="animation-gif-warning" role="status"
                             aria-live="polite" hidden>
