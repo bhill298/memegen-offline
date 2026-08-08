@@ -20,14 +20,14 @@ function solidFrame(width, height, red, green, blue) {
   return pixels;
 }
 
-async function animatedGifBuffer() {
+async function animatedGifBuffer({ looped = true, loopCount = 0 } = {}) {
   const width = 64;
   const height = 48;
   const buffer = await encodeGif({
     width,
     height,
-    looped: true,
-    loopCount: 0,
+    looped,
+    loopCount,
     frames: [
       { data: solidFrame(width, height, 220, 20, 20), delay: 100 },
       { data: solidFrame(width, height, 20, 180, 40), delay: 200 },
@@ -68,13 +68,13 @@ async function openEditor(page) {
   await expect(page.locator('.canvas-container')).toHaveCount(1);
 }
 
-async function openGifEditor(page) {
+async function openGifEditor(page, gifOptions) {
   await page.goto('/');
   await expect(page.locator('.memes-container img').first()).toBeVisible();
   await page.locator('#meme-input').setInputFiles({
     name: 'animated-test.gif',
     mimeType: 'image/gif',
-    buffer: await animatedGifBuffer(),
+    buffer: await animatedGifBuffer(gifOptions),
   });
   await expect(page.locator('#generate-meme')).toHaveText('Generate GIF');
   await expect(page.locator('#generate-meme')).toBeEnabled();
@@ -419,17 +419,32 @@ for (const conversion of conversionCases) {
     expect(download.suggestedFilename()).toMatch(new RegExp(`\\${extension}$`));
     const decoded = await decodeAnimatedOutput(page, conversion.output, output);
     const sourceIsGif = conversion.source === 'GIF';
+    const expectedLoopCount = conversion.output === 'GIF'
+      ? 2
+      : (sourceIsGif ? 0 : 3);
     expect(decoded).toMatchObject({
       width: sourceIsGif ? 64 : 32,
       height: sourceIsGif ? 48 : 24,
       delays: [100, 200],
       frameCount: 2,
-      loopCount: sourceIsGif ? 0 : 3,
+      loopCount: expectedLoopCount,
       hasTransparency: true,
     });
     if (conversion.output === 'GIF') {
       expect(decoded.looped).toBe(true);
     }
+  });
+}
+
+for (const outputFormat of ['APNG', 'WebP']) {
+  test(`finite GIF loop count is preserved when converting to ${outputFormat}`, async ({ page }) => {
+    // A GIF loop count of 2 means one initial play plus two repetitions.
+    await openGifEditor(page, { loopCount: 2 });
+    await page.locator('#animation-output-format').selectOption(outputFormat.toLowerCase());
+
+    const { output } = await downloadAnimatedOutput(page);
+    const decoded = await decodeAnimatedOutput(page, outputFormat, output);
+    expect(decoded.loopCount).toBe(3);
   });
 }
 

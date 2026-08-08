@@ -343,6 +343,26 @@ function createAnimationFrameDecoder(animationInfo) {
     };
 }
 
+function getAnimationTotalPlays(animationInfo) {
+    const metadata = animationInfo.metadata;
+    if (animationInfo.format === 'gif') {
+        if (metadata.looped !== true) return 1;
+        return metadata.loopCount === 0 ? 0 : metadata.loopCount + 1;
+    }
+    return metadata.loopCount || 0;
+}
+
+function getOutputLoopCount(totalPlays, outputFormat) {
+    if (totalPlays === 0) return 0;
+    if (outputFormat === 'gif') {
+        return Math.min(65535, Math.max(0, totalPlays - 1));
+    }
+    if (outputFormat === 'webp') {
+        return Math.min(65535, totalPlays);
+    }
+    return totalPlays;
+}
+
 function createAnimationEncoder(
     animationInfo, outputFormat, width, height, qualityProfile
 ) {
@@ -351,14 +371,11 @@ function createAnimationEncoder(
     let initialized = false;
     return {
         initialize: async function () {
-            const metadata = animationInfo.metadata;
-            const sourceDoesNotLoop = animationInfo.format === 'gif' &&
-                metadata.looped !== true;
+            const totalPlays = getAnimationTotalPlays(animationInfo);
             const data = {
                 width,
                 height,
-                loopCount: sourceDoesNotLoop && outputFormat !== 'gif'
-                    ? 1 : metadata.loopCount || 0,
+                loopCount: getOutputLoopCount(totalPlays, outputFormat),
                 webpLossless: qualityProfile.webpLossless,
                 webpQuality: qualityProfile.webpQuality,
                 apngColors: qualityProfile.apngColors,
@@ -366,8 +383,7 @@ function createAnimationEncoder(
             if (outputFormat === 'gif') {
                 Object.assign(data, {
                     version: '89a',
-                    looped: animationInfo.format === 'gif'
-                        ? metadata.looped === true : true,
+                    looped: totalPlays === 0 || totalPlays > 1,
                     maxColors: qualityProfile.gifColors,
                 });
             }
