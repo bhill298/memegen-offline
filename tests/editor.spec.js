@@ -73,7 +73,8 @@ async function openGifEditor(page) {
   });
   await expect(page.locator('#generate-meme')).toHaveText('Generate GIF');
   await expect(page.locator('#generate-meme')).toBeEnabled();
-  await expect(page.locator('#animation-status')).toContainText('2 frames');
+  await expect(page.locator('#animation-timeline')).toBeVisible();
+  await expect(page.locator('#animation-frame-label')).toContainText('Frame 1 of 2');
 }
 
 async function openSegmentedGifEditor(page) {
@@ -85,7 +86,8 @@ async function openSegmentedGifEditor(page) {
     buffer: await segmentedGifBuffer(),
   });
   await expect(page.locator('#generate-meme')).toBeEnabled();
-  await expect(page.locator('#animation-status')).toContainText('4 frames');
+  await expect(page.locator('#animation-timeline')).toBeVisible();
+  await expect(page.locator('#animation-frame-label')).toContainText('Frame 1 of 4');
 }
 
 async function animatedApngBuffer(page) {
@@ -184,7 +186,8 @@ async function openAdditionalAnimationEditor(page, format) {
   });
   await expect(page.locator('#generate-meme')).toHaveText(`Generate ${format}`);
   await expect(page.locator('#generate-meme')).toBeEnabled();
-  await expect(page.locator('#animation-status')).toContainText('2 frames');
+  await expect(page.locator('#animation-timeline')).toBeVisible();
+  await expect(page.locator('#animation-frame-label')).toContainText('Frame 1 of 2');
 }
 
 async function canvasObjects(page) {
@@ -314,9 +317,11 @@ test('an image overlay can be added, undone, and redone', async ({ page }) => {
 
 test('export preserves the template resolution', async ({ page }) => {
   await openEditor(page);
+  const pageCount = page.context().pages().length;
   const downloadPromise = page.waitForEvent('download');
   await page.locator('#generate-meme').click();
   const download = await downloadPromise;
+  expect(page.context().pages()).toHaveLength(pageCount);
   const stream = await download.createReadStream();
   const chunks = [];
   for await (const chunk of stream) chunks.push(chunk);
@@ -354,9 +359,11 @@ test('GIF export preserves frames and timing and applies one overlay to every fr
   await page.locator('#add-text').click();
   await waitForHistory(page);
 
+  const pageCount = page.context().pages().length;
   const downloadPromise = page.waitForEvent('download');
   await page.locator('#generate-meme').click();
   const download = await downloadPromise;
+  expect(page.context().pages()).toHaveLength(pageCount);
   expect(download.suggestedFilename()).toMatch(/\.gif$/);
   const stream = await download.createReadStream();
   const chunks = [];
@@ -400,7 +407,6 @@ test('leaving a GIF editor restores the unchanged static editor path', async ({ 
   await openGifEditor(page);
   await page.locator('.back-btn .btn').click();
   await expect(page.locator('.canvas-container')).toHaveCount(0);
-  await expect(page.locator('#animation-status')).toBeHidden();
   await expect(page.locator('#animation-timeline')).toBeHidden();
 
   await page.locator('#meme-input').setInputFiles(blankImage);
@@ -427,9 +433,11 @@ for (const format of ['APNG', 'WebP']) {
 
     await page.locator('#add-text').click();
     await waitForHistory(page);
+    const pageCount = page.context().pages().length;
     const downloadPromise = page.waitForEvent('download');
     await page.locator('#generate-meme').click();
     const download = await downloadPromise;
+    expect(page.context().pages()).toHaveLength(pageCount);
     expect(download.suggestedFilename()).toMatch(format === 'APNG' ? /\.png$/ : /\.webp$/);
     const stream = await download.createReadStream();
     const chunks = [];
@@ -487,6 +495,10 @@ test('a timeline split can be undone and redone', async ({ page }) => {
   expect(await page.evaluate(() => canvas.animationTimeline.segments.map(s => s.startFrame)))
     .toEqual([0, 2]);
   await expect(page.locator('.animation-segment-marker')).toHaveCount(2);
+  await expect(page.locator('.animation-segment-marker.active')).toHaveCount(1);
+  await expect(page.locator('.animation-segment-marker').nth(1)).toBeVisible();
+  expect((await page.locator('.animation-segment-marker').nth(1).boundingBox()).height)
+    .toBeGreaterThan(15);
   await expect(page.locator('#animation-range-label')).toHaveText('Editing frames 3–4');
 
   await page.locator('#canvas-undo').click();

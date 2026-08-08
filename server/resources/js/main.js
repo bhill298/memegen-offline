@@ -97,7 +97,6 @@ function processMeme(memeInfo) {
     let pendingAssetLoads = 0;
     let isExporting = false;
     const animationInfo = memeInfo.animationInfo;
-    const $animationStatus = $('#animation-status');
     const $animationTimeline = $('#animation-timeline');
     const $animationSlider = $('#animation-frame-slider');
     const $animationSplit = $('#animation-split');
@@ -141,16 +140,7 @@ function processMeme(memeInfo) {
     }
 
     updateGenerateButton();
-    if (animationInfo) {
-        $animationStatus.removeAttr('hidden').text(
-            `Loading animated ${animationInfo.formatLabel}...`
-        );
-        $animationTimeline.attr('hidden', true);
-    }
-    else {
-        $animationStatus.attr('hidden', true).empty();
-        $animationTimeline.attr('hidden', true);
-    }
+    $animationTimeline.attr('hidden', true);
 
     function updateHistoryButtons() {
         $('#canvas-undo').prop('disabled', restoringHistory || historyIndex <= 0);
@@ -397,6 +387,7 @@ function processMeme(memeInfo) {
             const percent = animationFrames.length <= 1 ? 0 :
                 candidate.startFrame * 100 / (animationFrames.length - 1);
             $('<span class="animation-segment-marker"></span>')
+                .toggleClass('active', candidate.startFrame === segment.startFrame)
                 .css('left', `${percent}%`)
                 .appendTo(markerContainer);
         });
@@ -487,7 +478,6 @@ function processMeme(memeInfo) {
         $animationSplit.off('click');
         $('#animation-segment-markers').empty();
         $animationTimeline.attr('hidden', true);
-        $animationStatus.attr('hidden', true).empty();
         editorCanvas.dispose();
         $('#meme-canvas').remove();
         if (canvas === editorCanvas) {
@@ -788,10 +778,6 @@ function processMeme(memeInfo) {
                 backgroundReady = true;
                 editorCanvas.renderAll();
                 updateGenerateButton();
-                $animationStatus.text(
-                    `${animationInfo.frameCount} frames · ` +
-                    `${formatAnimationDuration(animationInfo.duration)}`
-                );
                 updateAnimationTimeline();
                 if (sizePlan.outputWasReduced) {
                     showAlert(
@@ -805,7 +791,6 @@ function processMeme(memeInfo) {
         catch (error) {
             if (!editorDestroyed && canvas === editorCanvas) {
                 reportBackgroundLoadFailure(`Error! ${error.message}`);
-                $animationStatus.text(`${animationInfo.formatLabel} load failed`);
             }
         }
     }
@@ -1004,13 +989,17 @@ function processMeme(memeInfo) {
     });
 
     function downloadGeneratedBlob(blob, extension) {
-        const objectUrl = URL.createObjectURL(blob);
+        // An attachment MIME type prevents browsers from previewing animated
+        // image object URLs instead of honoring the download request.
+        const attachmentBlob = new Blob([blob], { type: 'application/octet-stream' });
+        const objectUrl = URL.createObjectURL(attachmentBlob);
         const link = document.createElement('a');
         link.href = objectUrl;
         link.download = createImgName().replace(/\.png$/, extension);
+        link.hidden = true;
         document.body.appendChild(link);
         link.click();
-        document.body.removeChild(link);
+        link.remove();
         setTimeout(function () {
             URL.revokeObjectURL(objectUrl);
         }, 1000);
@@ -1096,13 +1085,11 @@ function processMeme(memeInfo) {
             ).data;
             animationExportLabel = `Generating ${animationInfo.formatLabel}... ` +
                 `${frameIndex + 1}/${animationFrames.length}`;
-            $animationStatus.text(animationExportLabel);
             updateGenerateButton();
             await activeAnimationEncoder.addFrame(pixels, frame.delay);
         }
 
         animationExportLabel = `Finalizing ${animationInfo.formatLabel}...`;
-        $animationStatus.text(animationExportLabel);
         updateGenerateButton();
         const blob = await activeAnimationEncoder.finish();
         if (!editorDestroyed && canvas === editorCanvas) {
@@ -1137,10 +1124,6 @@ function processMeme(memeInfo) {
                 animationExportLabel = '';
                 isExporting = false;
                 if (!editorDestroyed && canvas === editorCanvas) {
-                    $animationStatus.text(
-                        `${animationInfo.frameCount} frames · ` +
-                        `${formatAnimationDuration(animationInfo.duration)}`
-                    );
                     animationFramePlayer.showFrame(animationInfo.timeline.currentFrame);
                     updateAnimationTimeline();
                     updateGenerateButton();

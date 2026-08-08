@@ -343,10 +343,6 @@ function createAnimationEncoder(animationInfo, width, height) {
     };
 }
 
-function formatAnimationDuration(duration) {
-    return `${(duration / 1000).toFixed(1)} seconds`;
-}
-
 function createAnimationFramePlayer(frames, renderFrame) {
     let frameIndex = 0;
     let timer;

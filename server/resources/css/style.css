@@ -123,12 +123,6 @@ body {
     border: 1px solid #cecece;
 }
 
-.animation-status {
-    color: #666;
-    font-size: 0.875rem;
-    margin-top: 0.4rem;
-}
-
 .animation-timeline {
     border: 1px solid #d8d8d8;
     border-top: 0;
@@ -146,8 +140,8 @@ body {
 
 .animation-slider-container {
     position: relative;
-    margin: 0.35rem 0 0.45rem;
-    height: 1.4rem;
+    margin: 0.55rem 0 0.45rem;
+    height: 1.65rem;
 }
 
 #animation-frame-slider {
@@ -159,21 +153,42 @@ body {
 
 #animation-segment-markers {
     position: absolute;
-    z-index: 1;
-    top: 0.9rem;
+    z-index: 3;
+    top: 0;
     left: 0.5rem;
     right: 0.5rem;
-    height: 0.4rem;
+    height: 1.4rem;
     pointer-events: none;
 }
 
 .animation-segment-marker {
     position: absolute;
     width: 3px;
-    height: 0.4rem;
+    height: 1.35rem;
     border-radius: 1px;
     background: #5b2a72;
     transform: translateX(-1px);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.9);
+}
+
+.animation-segment-marker::before {
+    content: '';
+    position: absolute;
+    top: -0.35rem;
+    left: 50%;
+    border-right: 5px solid transparent;
+    border-left: 5px solid transparent;
+    border-top: 6px solid #5b2a72;
+    transform: translateX(-50%);
+}
+
+.animation-segment-marker.active {
+    width: 4px;
+    background: #d13b3b;
+}
+
+.animation-segment-marker.active::before {
+    border-top-color: #d13b3b;
 }
 
 
