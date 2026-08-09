@@ -4,6 +4,7 @@ var __$memesContainer = $('.memes-container');
 var __memesTemplate = $('#meme-template').html();
 var __currentMemeIndex = 0;
 var __currentMemeEndIndex = 0;
+var __photoUpdateToken = 0;
 // this sets the images per page
 const __memeStride = 60;
 const __meme_url = new URL('img/memes/', document.baseURI).href;
@@ -40,12 +41,17 @@ function getImages() {
 }
 
 function updatePhotosFromNames(names) {
+    const updateToken = ++__photoUpdateToken;
+    const hasPhotos = names.length > 0;
     clearPhotos();
     for (let name of names) {
         addPhoto(name);
     }
     let $grid = reflowGrid();
     $grid.one('layoutComplete', function(){
+        if (updateToken !== __photoUpdateToken || !hasPhotos) {
+            return;
+        }
         // need to remove hidden the first time since that's in the html (other times it does nothing)
         $("#prev-next-buttons").removeAttr("hidden");
         $("#prev-next-buttons").show();

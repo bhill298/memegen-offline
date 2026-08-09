@@ -728,6 +728,27 @@ test('gallery search handles OR, AND, case, repeated whitespace, no results, and
   ]);
 });
 
+test('stale search layouts cannot show pagination for current empty results', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.memes-container img').first()).toBeVisible();
+  await page.evaluate(() => {
+    __imgNames.splice(0, __imgNames.length, 'alpha.png', 'beta.png');
+    __currentMemeIndex = 0;
+    __currentMemeEndIndex = __imgNames.length - 1;
+    __lastMemeSearchTerm = '';
+    updatePhotosFromNames(__imgNames);
+  });
+
+  await page.locator('#meme-search').fill('alpha');
+  await expect.poll(() => page.locator('.memes-container img').count()).toBe(1);
+  await page.locator('#meme-search').fill('missing');
+  await expect.poll(() => page.locator('.memes-container img').count()).toBe(0);
+
+  // Simulate a delayed Masonry completion after the newer empty search rendered.
+  await page.evaluate(() => $('.grid').trigger('layoutComplete'));
+  await expect(page.locator('#prev-next-buttons')).toBeHidden();
+});
+
 test('undo and redo restore edits and discard an abandoned redo branch', async ({ page }) => {
   await openEditor(page);
   await page.locator('#add-text').click();
