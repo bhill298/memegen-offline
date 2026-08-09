@@ -666,6 +666,7 @@ function processMeme(memeInfo) {
             // ctrl + x
             if (keyMap[88] === true) {
                 if (copySelected()) {
+                    flushScheduledHistory();
                     deleteSelected();
                     e.preventDefault();
                 }
@@ -689,6 +690,7 @@ function processMeme(memeInfo) {
         if (e.keyCode == 46 ||
             e.key == 'Delete' ||
             e.code == 'Delete') {
+            flushScheduledHistory();
             deleteSelected();
         }
 
@@ -958,6 +960,7 @@ function processMeme(memeInfo) {
     });
 
     $("#canvas-delete").off('click').on('click', function () {
+        flushScheduledHistory();
         deleteSelected(true);
     });
 
@@ -965,6 +968,7 @@ function processMeme(memeInfo) {
     $('#canvas-redo').off('click').on('click', redoCanvas);
 
     $("#canvas-clear").off('click').on('click', function () {
+        flushScheduledHistory();
         canvas.getObjects().forEach(el => canvas.remove(el));
         canvas.discardActiveObject().renderAll();
     });

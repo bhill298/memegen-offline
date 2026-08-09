@@ -629,6 +629,46 @@ test('animation aliases find GIF, WebP, and APNG gallery entries', async ({ page
   expect(results.gifs).toEqual(expected);
 });
 
+test('gallery search handles OR, AND, case, repeated whitespace, no results, and reset', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.memes-container img').first()).toBeVisible();
+  await page.evaluate(() => {
+    __imgNames.splice(0, __imgNames.length,
+      'alpha-only.png',
+      'alpha-beta.png',
+      'beta-only.png',
+      'unrelated.png'
+    );
+    __currentMemeIndex = 0;
+    __currentMemeEndIndex = __imgNames.length - 1;
+    __lastMemeSearchTerm = '';
+    updatePhotosFromNames(__imgNames);
+  });
+
+  const visibleNames = () => page.locator('.memes-container img').evaluateAll(images =>
+    images.map(image => image.title)
+  );
+
+  await page.locator('#meme-search').fill('alpha beta');
+  await expect.poll(visibleNames).toEqual([
+    'alpha-only', 'alpha-beta', 'beta-only',
+  ]);
+
+  await page.locator('#meme-search-option-and').check();
+  await expect.poll(visibleNames).toEqual(['alpha-beta']);
+
+  await page.locator('#meme-search').fill('  ALPHA   BETA  ');
+  await expect.poll(visibleNames).toEqual(['alpha-beta']);
+
+  await page.locator('#meme-search').fill('missing');
+  await expect.poll(visibleNames).toEqual([]);
+
+  await page.locator('#meme-search').fill('');
+  await expect.poll(visibleNames).toEqual([
+    'alpha-only', 'alpha-beta', 'beta-only', 'unrelated',
+  ]);
+});
+
 test('undo and redo restore edits and discard an abandoned redo branch', async ({ page }) => {
   await openEditor(page);
   await page.locator('#add-text').click();
@@ -648,6 +688,44 @@ test('undo and redo restore edits and discard an abandoned redo branch', async (
   await waitForHistory(page);
   await expect(page.locator('#canvas-redo')).toBeDisabled();
 });
+
+for (const deletion of [
+  { name: 'Clear', perform: async page => page.locator('#canvas-clear').click() },
+  {
+    name: 'Delete button',
+    perform: async page => {
+      await page.evaluate(() => canvas.setActiveObject(canvas.item(0)).renderAll());
+      await page.locator('#canvas-delete').click();
+    },
+  },
+  {
+    name: 'Delete key',
+    perform: async page => {
+      await page.locator('#meme-canvas-wrapper').focus();
+      await page.evaluate(() => canvas.setActiveObject(canvas.item(0)).renderAll());
+      await page.keyboard.press('Delete');
+    },
+  },
+  {
+    name: 'Cut shortcut',
+    perform: async page => {
+      await page.locator('#meme-canvas-wrapper').focus();
+      await page.evaluate(() => canvas.setActiveObject(canvas.item(0)).renderAll());
+      await page.keyboard.press('Control+x');
+    },
+  },
+]) {
+  test(`${deletion.name} preserves a pending edit as an undo state`, async ({ page }) => {
+    await openEditor(page);
+    await page.locator('#add-text').click();
+    await deletion.perform(page);
+    await expect.poll(async () => (await canvasObjects(page)).length).toBe(0);
+    await expect(page.locator('#canvas-undo')).toBeEnabled();
+
+    await page.locator('#canvas-undo').click();
+    await expect.poll(async () => (await canvasObjects(page)).length).toBe(1);
+  });
+}
 
 test('keyboard movement is undoable', async ({ page }) => {
   await openEditor(page);
