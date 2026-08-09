@@ -24,6 +24,13 @@ $('.cp-black').colorpicker({
     useAlpha: false
 });
 
+$('.colorpicker-input-addon').on('keydown', function (event) {
+    if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        $(this).trigger('click');
+    }
+});
+
 // The animation selects are populated or updated at editor runtime and work
 // best as native controls. Other selects retain the existing styled picker.
 $('select:not(#animation-output-format):not(#animation-quality)').selectpicker({

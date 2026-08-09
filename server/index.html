@@ -126,11 +126,14 @@
                             <div>
                                 <div class="input-group" id="font-style">
                                     <button class="btn btn-warning edit-btn text-method" id="bold" value="bold"
-                                        data><i class="fas fa-bold"></i></button>
+                                        aria-label="Bold text" title="Bold text" data><i class="fas fa-bold"
+                                            aria-hidden="true"></i></button>
                                     <button class="btn btn-warning edit-btn text-method" id="italic" value="italic"
-                                        data><i class="fas fa-italic"></i></button>
+                                        aria-label="Italic text" title="Italic text" data><i class="fas fa-italic"
+                                            aria-hidden="true"></i></button>
                                     <button class="btn btn-warning edit-btn text-method" id="underline" value="true"
-                                        data><i class="fas fa-underline"></i></button>
+                                        aria-label="Underline text" title="Underline text" data><i class="fas fa-underline"
+                                            aria-hidden="true"></i></button>
                                 </div>
                             </div>
                         </div>
@@ -139,16 +142,19 @@
                             <div>
                                 <div class="btn-group btn-group-toggle" data-toggle="buttons">
                                     <label class="btn btn-warning active align">
-                                        <input type="radio" value="left" name="align" id="left" checked> <i
-                                            class="fas fa-align-left"></i>
+                                        <input type="radio" value="left" name="align" id="left"
+                                            aria-label="Align text left" checked> <i class="fas fa-align-left"
+                                            aria-hidden="true"></i>
                                     </label>
                                     <label class="btn btn-warning align">
-                                        <input type="radio" value="center" name="align" id="center"> <i
-                                            class="fas fa-align-center"></i>
+                                        <input type="radio" value="center" name="align" id="center"
+                                            aria-label="Align text center"> <i class="fas fa-align-center"
+                                            aria-hidden="true"></i>
                                     </label>
                                     <label class="btn btn-warning align">
-                                        <input type="radio" value="right" name="align" id="right"> <i
-                                            class="fas fa-align-right"></i>
+                                        <input type="radio" value="right" name="align" id="right"
+                                            aria-label="Align text right"> <i class="fas fa-align-right"
+                                            aria-hidden="true"></i>
                                     </label>
                                 </div>
 
@@ -161,7 +167,9 @@
                                     min="0" max="20" placeholder="0">
                                 <span class="input-group-append">
                                     <span class="input-group-text colorpicker-input-addon" id="stroke-color"
-                                        value="#000000"><i></i></span>
+                                        value="#000000" role="button" tabindex="0"
+                                        aria-label="Choose text stroke color" title="Choose text stroke color"><i
+                                            aria-hidden="true"></i></span>
                                 </span>
                             </div>
                         </div>
@@ -172,18 +180,23 @@
                                     min="0" max="20" placeholder="0">
                                 <span class="input-group-append">
                                     <span class="input-group-text colorpicker-input-addon" id="shadow-color"
-                                        value="#000000"><i></i></span>
+                                        value="#000000" role="button" tabindex="0"
+                                        aria-label="Choose text shadow color" title="Choose text shadow color"><i
+                                            aria-hidden="true"></i></span>
                                 </span>
                             </div>
                         </div>
                         <div class="form-group col-auto col-sm-auto col-md-auto col-lg-auto">
                             <label>BG Color: </label>
                             <div class="input-group cp cp-black" id="cp-background">
-                                <button class="btn btn-warning edit-btn text-method" id="bg-option" value="" data><i
-                                        class="fas fa-fill-drip"></i></button>
+                                <button class="btn btn-warning edit-btn text-method" id="bg-option" value=""
+                                    aria-label="Toggle text background color" title="Toggle text background color"
+                                    data><i class="fas fa-fill-drip" aria-hidden="true"></i></button>
                                 <span class="input-group-append">
                                     <span class="input-group-text colorpicker-input-addon" id="bg-color"
-                                        value="#000000"><i></i></span>
+                                        value="#000000" role="button" tabindex="0"
+                                        aria-label="Choose text background color" title="Choose text background color"><i
+                                            aria-hidden="true"></i></span>
                                 </span>
                             </div>
                         </div>
@@ -191,7 +204,9 @@
                             <label>Text Color: </label>
                             <div class="input-group cp" style="height: 38px;" id="cp-text">
                                 <span class="input-group-text colorpicker-input-addon" id="text-color"
-                                    value="#ffffff"><i></i></span>
+                                    value="#ffffff" role="button" tabindex="0"
+                                    aria-label="Choose text color" title="Choose text color"><i
+                                        aria-hidden="true"></i></span>
                             </div>
                         </div>
                     </div>
@@ -225,7 +240,10 @@
                             <div style="display:inline-block;">
                                 <label>Color:</label>
                                 <div class="input-group cp cp-black" id="cp-brush" style="height:38px">
-                                    <span class="input-group-text colorpicker-input-addon" id="brush-color" value="#000000ff"><i></i></span>
+                                    <span class="input-group-text colorpicker-input-addon" id="brush-color"
+                                        value="#000000ff" role="button" tabindex="0"
+                                        aria-label="Choose brush color" title="Choose brush color"><i
+                                            aria-hidden="true"></i></span>
                                 </div>
                             </div>
                         </div>

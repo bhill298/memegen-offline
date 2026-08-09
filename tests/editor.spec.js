@@ -351,6 +351,65 @@ test('quality controls appear only for animations and explain the APNG exception
   await expect(page.locator('#animation-quality-help')).toHaveCount(0);
 });
 
+test('icon-only text controls have descriptive accessible names', async ({ page }) => {
+  await openEditor(page);
+  const expectedNames = {
+    '#bold': 'Bold text',
+    '#italic': 'Italic text',
+    '#underline': 'Underline text',
+    '#left': 'Align text left',
+    '#center': 'Align text center',
+    '#right': 'Align text right',
+    '#bg-option': 'Toggle text background color',
+  };
+
+  for (const [selector, name] of Object.entries(expectedNames)) {
+    await expect(page.locator(selector)).toHaveAccessibleName(name);
+  }
+  await expect.poll(() => page.locator(
+    '#font-style i, label.align i, #bg-option i'
+  ).evaluateAll(icons => icons.map(icon => icon.getAttribute('aria-hidden')))).toEqual(
+    Array(7).fill('true')
+  );
+});
+
+test('color controls have descriptive button semantics and keyboard activation', async ({ page }) => {
+  await openEditor(page);
+  const expectedNames = {
+    '#stroke-color': 'Choose text stroke color',
+    '#shadow-color': 'Choose text shadow color',
+    '#bg-color': 'Choose text background color',
+    '#text-color': 'Choose text color',
+  };
+
+  for (const [selector, name] of Object.entries(expectedNames)) {
+    const control = page.locator(selector);
+    await expect(control).toHaveRole('button');
+    await expect(control).toHaveAccessibleName(name);
+    await expect(control).toHaveAttribute('tabindex', '0');
+    await expect(control.locator('i')).toHaveAttribute('aria-hidden', 'true');
+  }
+
+  await page.evaluate(() => {
+    window.__colorControlClicks = { stroke: 0, brush: 0 };
+    $('#stroke-color').on('click.accessibilityTest', () => window.__colorControlClicks.stroke++);
+    $('#brush-color').on('click.accessibilityTest', () => window.__colorControlClicks.brush++);
+  });
+  await page.locator('#stroke-color').focus();
+  await page.keyboard.press('Enter');
+  await expect.poll(() => page.evaluate(() => window.__colorControlClicks.stroke)).toBe(1);
+
+  await page.locator('#toggle-brush').click();
+  const brushColor = page.locator('#brush-color');
+  await expect(brushColor).toHaveRole('button');
+  await expect(brushColor).toHaveAccessibleName('Choose brush color');
+  await expect(brushColor).toHaveAttribute('tabindex', '0');
+  await expect(brushColor.locator('i')).toHaveAttribute('aria-hidden', 'true');
+  await brushColor.focus();
+  await page.keyboard.press('Space');
+  await expect.poll(() => page.evaluate(() => window.__colorControlClicks.brush)).toBe(1);
+});
+
 test('WebP defaults to Balanced quality while GIF and APNG default to Full', async ({ page }) => {
   await openGifEditor(page);
   await expect(page.locator('#animation-quality')).toHaveValue('full');
