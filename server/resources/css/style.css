@@ -186,6 +186,17 @@ body {
     white-space: nowrap;
 }
 
+@media (max-width: 991.98px) {
+    .animation-export-actions {
+        margin-bottom: 2.75rem !important;
+    }
+
+    .animation-gif-warning {
+        white-space: normal;
+        width: calc(100% + 9rem);
+    }
+}
+
 .animation-timeline-readout {
     display: flex;
     flex-wrap: wrap;

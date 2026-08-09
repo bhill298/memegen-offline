@@ -416,6 +416,36 @@ test('GIF conversion warning appears only for non-GIF sources exported as GIF', 
   await expect(page.locator('#animation-gif-warning')).toBeHidden();
 });
 
+test('GIF conversion warning wraps without causing narrow viewport overflow', async ({ page }) => {
+  for (const width of [768, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    await openAdditionalAnimationEditor(page, 'APNG');
+    await page.locator('#animation-output-format').selectOption('gif');
+    await expect(page.locator('#animation-gif-warning')).toBeVisible();
+
+    const layout = await page.evaluate(() => {
+      const warning = document.querySelector('#animation-gif-warning');
+      const bounds = warning.getBoundingClientRect();
+      return {
+        documentOverflow: document.documentElement.scrollWidth - window.innerWidth,
+        warningLeft: bounds.left,
+        warningRight: bounds.right,
+        viewportWidth: window.innerWidth,
+        whiteSpace: getComputedStyle(warning).whiteSpace,
+      };
+    });
+    expect(layout.documentOverflow).toBeLessThanOrEqual(0);
+    expect(layout.warningLeft).toBeGreaterThanOrEqual(0);
+    expect(layout.warningRight).toBeLessThanOrEqual(layout.viewportWidth);
+    expect(layout.whiteSpace).toBe('normal');
+  }
+
+  await page.setViewportSize({ width: 1100, height: 900 });
+  await openAdditionalAnimationEditor(page, 'APNG');
+  await page.locator('#animation-output-format').selectOption('gif');
+  await expect(page.locator('#animation-gif-warning')).toHaveCSS('white-space', 'nowrap');
+});
+
 const conversionCases = [
   { source: 'GIF', output: 'WebP' },
   { source: 'GIF', output: 'APNG' },
