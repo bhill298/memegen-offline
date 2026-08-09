@@ -103,7 +103,7 @@ function resolveAnimationQualityProfile(format, quality, sizePlan) {
     };
 }
 
-async function readAnimatedSource(imgInfo) {
+async function readAnimatedSource(imgInfo, label) {
     let buffer;
     let sourceByteLength;
     if (imgInfo.sourceFile) {
@@ -282,7 +282,7 @@ async function prepareAnimatedMemeInfo(imgInfo) {
     const format = getPossibleAnimationFormat(imgInfo);
     if (!format) return imgInfo;
     const formatInfo = ANIMATION_FORMATS[format];
-    const source = await readAnimatedSource(imgInfo);
+    const source = await readAnimatedSource(imgInfo, formatInfo.label);
     const buffer = source.buffer;
     let metadata;
     try {

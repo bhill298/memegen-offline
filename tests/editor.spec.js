@@ -981,6 +981,27 @@ test('GIF safety limits reject excessive frame counts before opening the editor'
   await expect(page.locator('.canvas-container')).toHaveCount(0);
 });
 
+test('failed animated gallery fetch reports the format and HTTP status', async ({ page }) => {
+  await page.route('**/missing-animation.gif', route => route.fulfill({ status: 404 }));
+  await page.goto('/');
+  const message = await page.evaluate(async () => {
+    try {
+      await prepareAnimatedMemeInfo({
+        url: '/img/memes/missing-animation.gif',
+        width: 1,
+        height: 1,
+        mimeType: 'image/gif',
+      });
+    }
+    catch (error) {
+      return error.message;
+    }
+    return undefined;
+  });
+
+  expect(message).toBe('The GIF could not be loaded (HTTP 404).');
+});
+
 test('animation safety limits include decoded source and output frame memory', async ({ page }) => {
   await page.goto('/');
   const message = await page.evaluate(() => {
