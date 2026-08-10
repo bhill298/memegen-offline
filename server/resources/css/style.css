@@ -172,9 +172,9 @@ body {
 }
 
 .animation-export-actions #generate-meme {
-    flex: 0 0 8.5rem;
+    flex: 0 0 14rem;
     white-space: nowrap;
-    width: 8.5rem;
+    width: 14rem;
 }
 
 .animation-gif-warning {
@@ -193,7 +193,7 @@ body {
 
     .animation-gif-warning {
         white-space: normal;
-        width: calc(100% + 9rem);
+        width: calc(100% + 14.5rem);
     }
 }
 

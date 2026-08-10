@@ -427,7 +427,7 @@ test('APNG and WebP default to Balanced quality while GIF defaults to Full', asy
   await expect(page.locator('#animation-quality')).toHaveValue('balanced');
 });
 
-test('encoding status does not push the Generate button below animation controls', async ({ page }) => {
+test('the longest encoding status fits without shifting the Generate button', async ({ page }) => {
   await page.setViewportSize({ width: 1100, height: 800 });
   await openAdditionalAnimationEditor(page, 'WebP');
   const alignment = async label => page.evaluate(label => {
@@ -440,14 +440,16 @@ test('encoding status does not push the Generate button below animation controls
         quality.top + quality.height / 2 - (generate.top + generate.height / 2)
       ),
       buttonWidth: generate.width,
+      textFits: button.scrollWidth <= button.clientWidth,
     };
   }, label);
 
   const ready = await alignment('Generate WebP');
-  const encoding = await alignment('Encoding WebP...');
+  const encoding = await alignment('Preparing APNG... 300/300');
   expect(ready.centerDifference).toBeLessThan(1);
   expect(encoding.centerDifference).toBeLessThan(1);
   expect(encoding.buttonWidth).toBeCloseTo(ready.buttonWidth, 1);
+  expect(encoding.textFits).toBe(true);
 });
 
 test('GIF conversion warning appears only for non-GIF sources exported as GIF', async ({ page }) => {
