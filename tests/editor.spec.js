@@ -325,7 +325,7 @@ test('ignores overlapping custom-template selections while preparing an editor',
   await expect(page.locator('#meme-canvas')).toHaveCount(1);
 });
 
-test('quality controls appear only for animations and explain the APNG exception', async ({ page }) => {
+test('quality controls appear only for animations and explain slow full-quality encoding', async ({ page }) => {
   await openEditor(page);
   await expect(page.locator('#animation-quality-controls')).toBeHidden();
 
@@ -342,11 +342,11 @@ test('quality controls appear only for animations and explain the APNG exception
   await expect(page.locator('#animation-gif-warning')).toBeHidden();
   await expect(page.locator('#animation-quality')).toHaveAttribute(
     'title',
-    'Lower quality reduces file size and encoding time. For APNG, it reduces file size only. Full-quality WebP encoding is slow.'
+    'Lower quality reduces file size and encoding time. Full-quality APNG and WebP encoding is slow.'
   );
   await expect(page.locator('label[for="animation-quality"]')).toHaveAttribute(
     'title',
-    'Lower quality reduces file size and encoding time. For APNG, it reduces file size only. Full-quality WebP encoding is slow.'
+    'Lower quality reduces file size and encoding time. Full-quality APNG and WebP encoding is slow.'
   );
   await expect(page.locator('#animation-quality-help')).toHaveCount(0);
 });
@@ -410,16 +410,20 @@ test('color controls have descriptive button semantics and keyboard activation',
   await expect.poll(() => page.evaluate(() => window.__colorControlClicks.brush)).toBe(1);
 });
 
-test('WebP defaults to Balanced quality while GIF and APNG default to Full', async ({ page }) => {
+test('APNG and WebP default to Balanced quality while GIF defaults to Full', async ({ page }) => {
   await openGifEditor(page);
   await expect(page.locator('#animation-quality')).toHaveValue('full');
   await page.locator('#animation-output-format').selectOption('webp');
   await expect(page.locator('#animation-quality')).toHaveValue('balanced');
   await page.locator('#animation-output-format').selectOption('apng');
-  await expect(page.locator('#animation-quality')).toHaveValue('full');
+  await expect(page.locator('#animation-quality')).toHaveValue('balanced');
 
   await page.locator('.back-btn .btn').click();
   await openAdditionalAnimationEditor(page, 'WebP');
+  await expect(page.locator('#animation-quality')).toHaveValue('balanced');
+
+  await page.locator('.back-btn .btn').click();
+  await openAdditionalAnimationEditor(page, 'APNG');
   await expect(page.locator('#animation-quality')).toHaveValue('balanced');
 });
 
