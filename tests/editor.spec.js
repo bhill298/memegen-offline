@@ -3,6 +3,9 @@ const path = require('node:path');
 const { encode: encodeGif, decode: decodeGif, decodeFrames: decodeGifFrames } = require('modern-gif');
 
 const blankImage = path.resolve(__dirname, '..', 'server', 'img', 'memes', 'blank.png');
+const largeOverlayImage = path.resolve(
+  __dirname, '..', 'server', 'img', 'memes', '1036-hide-the-pain-harold-thumbs-up.jpg'
+);
 
 function solidFrame(width, height, red, green, blue) {
   const pixels = new Uint8ClampedArray(width * height * 4);
@@ -859,6 +862,19 @@ test('an image overlay can be added, undone, and redone', async ({ page }) => {
   await expect.poll(async () => (await canvasObjects(page)).length).toBe(0);
   await page.locator('#canvas-redo').click();
   await expect.poll(async () => (await canvasObjects(page)).filter(object => object.type === 'image').length).toBe(1);
+});
+
+test('large added images are reduced to interactive working dimensions', async ({ page }) => {
+  await openEditor(page);
+  await page.locator('#add-image').setInputFiles(largeOverlayImage);
+  await expect.poll(() => page.evaluate(() => {
+    const image = canvas.getObjects().find(object => object.type === 'image');
+    const element = image && image.getElement();
+    return element && { width: element.width, height: element.height };
+  })).toEqual({ width: 1652, height: 1388 });
+  await expect(page.locator('.alert-container')).toContainText(
+    'Large added image resized to 1652 x 1388.'
+  );
 });
 
 test('an added image can be cropped and the crop can be undone and redone', async ({ page }) => {

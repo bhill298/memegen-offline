@@ -1269,19 +1269,22 @@ function processMeme(memeInfo) {
                     finishImageLoad();
                     return;
                 }
-                if (imageSizePlan.outputWasReduced) {
+                const addedImageWasReduced =
+                    imageSizePlan.workingWidth < image.width ||
+                    imageSizePlan.workingHeight < image.height;
+                if (addedImageWasReduced) {
                     try {
                         const resizedImage = document.createElement('canvas');
-                        resizedImage.width = imageSizePlan.outputWidth;
-                        resizedImage.height = imageSizePlan.outputHeight;
+                        resizedImage.width = imageSizePlan.workingWidth;
+                        resizedImage.height = imageSizePlan.workingHeight;
                         resizedImage.getContext('2d').drawImage(
                             image.getElement(), 0, 0,
-                            imageSizePlan.outputWidth, imageSizePlan.outputHeight
+                            imageSizePlan.workingWidth, imageSizePlan.workingHeight
                         );
                         image.setElement(resizedImage);
                         showAlert(
-                            `Large added image resized to ${imageSizePlan.outputWidth} x ` +
-                            `${imageSizePlan.outputHeight}.`
+                            `Large added image resized to ${imageSizePlan.workingWidth} x ` +
+                            `${imageSizePlan.workingHeight}.`
                         );
                     }
                     catch (error) {
