@@ -1395,6 +1395,15 @@ function processMeme(memeInfo) {
     let isMouseDown = false;
 
     canvas.on('mouse:down', function(o) {
+        const target = o.target;
+        const canvasObjects = editorCanvas.getObjects();
+        if (
+            target && target.type === 'image' &&
+            canvasObjects[canvasObjects.length - 1] !== target
+        ) {
+            editorCanvas.bringToFront(target);
+            scheduleCanvasHistory();
+        }
         if (!brushMode) return;
         isMouseDown = true;
         canvas.off('mouse:move', mouseMoveCursorHandler);

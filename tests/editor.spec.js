@@ -864,6 +864,36 @@ test('an image overlay can be added, undone, and redone', async ({ page }) => {
   await expect.poll(async () => (await canvasObjects(page)).filter(object => object.type === 'image').length).toBe(1);
 });
 
+test('clicking an image overlay brings it to the front', async ({ page }) => {
+  await openEditor(page);
+  await page.locator('#add-image').setInputFiles(blankImage);
+  await expect.poll(async () => (await canvasObjects(page)).length).toBe(1);
+  await page.locator('#add-image').setInputFiles(blankImage);
+  await expect.poll(async () => (await canvasObjects(page)).length).toBe(2);
+
+  await page.evaluate(() => {
+    const [firstImage, secondImage] = canvas.getObjects();
+    firstImage.setPositionByOrigin(new fabric.Point(100, canvas.height / 2), 'center', 'center');
+    secondImage.setPositionByOrigin(new fabric.Point(350, canvas.height / 2), 'center', 'center');
+    firstImage.setCoords();
+    secondImage.setCoords();
+    canvas.fire('object:modified', { target: firstImage });
+    canvas.fire('object:modified', { target: secondImage });
+    canvas.renderAll();
+  });
+  await waitForHistory(page);
+
+  const bounds = await page.locator('.upper-canvas').boundingBox();
+  await page.mouse.click(
+    bounds.x + 50 * bounds.width / 450,
+    bounds.y + bounds.height / 2
+  );
+  await expect.poll(() => page.evaluate(() => {
+    const topImage = canvas.getObjects().at(-1);
+    return Math.round(topImage.getCenterPoint().x);
+  })).toBe(100);
+});
+
 test('large added images are reduced to interactive working dimensions', async ({ page }) => {
   await openEditor(page);
   await page.locator('#add-image').setInputFiles(largeOverlayImage);
