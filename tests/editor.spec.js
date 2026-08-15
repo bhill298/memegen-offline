@@ -857,6 +857,274 @@ test('an image overlay can be added, undone, and redone', async ({ page }) => {
   await expect.poll(async () => (await canvasObjects(page)).filter(object => object.type === 'image').length).toBe(1);
 });
 
+test('an added image can be cropped and the crop can be undone and redone', async ({ page }) => {
+  await openEditor(page);
+  await page.locator('#add-image').setInputFiles(blankImage);
+  await expect(page.locator('#crop-image')).toHaveCount(0);
+  await page.evaluate(() => {
+    canvas.getActiveObject().set({ left: 50, top: 70 }).setCoords();
+    canvas.renderAll();
+  });
+
+  async function clickCanvasControl(controlName) {
+    const target = await page.evaluate(name => {
+      const image = canvas.getActiveObject();
+      image.setCoords();
+      return {
+        point: { x: image.oCoords[name].x, y: image.oCoords[name].y },
+        canvasWidth: canvas.width,
+        canvasHeight: canvas.height,
+      };
+    }, controlName);
+    const bounds = await page.locator('.upper-canvas').boundingBox();
+    await page.mouse.click(
+      bounds.x + target.point.x * bounds.width / target.canvasWidth,
+      bounds.y + target.point.y * bounds.height / target.canvasHeight
+    );
+  }
+
+  const original = await page.evaluate(() => {
+    const image = canvas.getActiveObject();
+    return { width: image.width, height: image.height };
+  });
+  const cropLeft = Math.min(80, original.width - 1);
+
+  expect(await page.evaluate(() => Object.keys(canvas.getActiveObject().controls))).toContain('cropMode');
+  const triggerLayout = await page.evaluate(() => {
+    const image = canvas.getActiveObject();
+    image.setCoords();
+    return {
+      crop: image.oCoords.cropMode,
+      middle: image.oCoords.mt,
+      rotation: image.oCoords.mtr,
+      right: image.oCoords.tr,
+      control: {
+        x: image.controls.cropMode.x,
+        y: image.controls.cropMode.y,
+        offsetX: image.controls.cropMode.offsetX *
+          image.canvas.upperCanvasEl.getBoundingClientRect().width / image.canvas.width,
+        offsetY: image.controls.cropMode.offsetY *
+          image.canvas.upperCanvasEl.getBoundingClientRect().width / image.canvas.width,
+        sizeX: image.controls.cropMode.sizeX *
+          image.canvas.upperCanvasEl.getBoundingClientRect().width / image.canvas.width,
+        resizeHandleSize: image.cornerSize *
+          image.canvas.upperCanvasEl.getBoundingClientRect().width / image.canvas.width,
+      },
+      displayScale: image.canvas.upperCanvasEl.getBoundingClientRect().width / image.canvas.width,
+    };
+  });
+  expect(triggerLayout.control.x).toBe(0);
+  expect(triggerLayout.control.y).toBe(-0.5);
+  expect(triggerLayout.control.offsetX).toBeCloseTo(20, 1);
+  expect(triggerLayout.control.offsetY).toBeCloseTo(-20, 1);
+  expect(triggerLayout.control.sizeX).toBeCloseTo(28, 1);
+  expect(triggerLayout.control.resizeHandleSize).toBeCloseTo(14, 1);
+  const horizontalGap = (triggerLayout.crop.x - triggerLayout.middle.x) *
+    triggerLayout.displayScale - 12;
+  const verticalGap = (triggerLayout.middle.y - triggerLayout.crop.y) *
+    triggerLayout.displayScale - 12;
+  expect(Math.abs(horizontalGap - verticalGap)).toBeLessThan(1);
+  expect(triggerLayout.crop.y).toBeCloseTo(
+    (triggerLayout.middle.y + triggerLayout.rotation.y) / 2,
+    5
+  );
+  expect(triggerLayout.crop.y).toBeGreaterThan(triggerLayout.right.y - 40);
+  expect(triggerLayout.crop.y).toBeLessThan(triggerLayout.middle.y);
+  await page.locator('#meme-canvas-wrapper').focus();
+  await page.keyboard.press('Control+c');
+  expect(await page.evaluate(() => Object.keys(canvas.getActiveObject().controls))).toContain('mtr');
+  await clickCanvasControl('cropMode');
+  expect(await page.evaluate(() => Object.keys(canvas.getActiveObject().controls).sort())).toEqual(
+    ['bl', 'br', 'cropMode', 'mb', 'ml', 'mr', 'mt', 'tl', 'tr']
+  );
+
+  // The icon toggles crop mode off, and the keyboard shortcuts offer the same path.
+  await clickCanvasControl('cropMode');
+  expect(await page.evaluate(() => Object.keys(canvas.getActiveObject().controls))).toContain('mtr');
+  await page.locator('#meme-canvas-wrapper').focus();
+  await page.keyboard.press('c');
+  expect(await page.evaluate(() => Object.keys(canvas.getActiveObject().controls))).not.toContain('mtr');
+  await page.keyboard.press('Escape');
+  expect(await page.evaluate(() => Object.keys(canvas.getActiveObject().controls))).toContain('mtr');
+  await clickCanvasControl('cropMode');
+
+  async function dragLeftCrop(sourcePixelDelta) {
+    const drag = await page.evaluate(delta => {
+      const image = canvas.getActiveObject();
+      image.setCoords();
+      return {
+        start: { x: image.oCoords.ml.x, y: image.oCoords.ml.y },
+        end: { x: image.oCoords.ml.x + delta * image.scaleX, y: image.oCoords.ml.y },
+        canvasWidth: canvas.width,
+        canvasHeight: canvas.height,
+      };
+    }, sourcePixelDelta);
+    const bounds = await page.locator('.upper-canvas').boundingBox();
+    const point = ({ x, y }) => ({
+      x: bounds.x + x * bounds.width / drag.canvasWidth,
+      y: bounds.y + y * bounds.height / drag.canvasHeight,
+    });
+    const start = point(drag.start);
+    const end = point(drag.end);
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(end.x, end.y, { steps: 5 });
+    await page.mouse.up();
+  }
+
+  await dragLeftCrop(cropLeft);
+
+  await expect.poll(() => page.evaluate(() => {
+    const image = canvas.getActiveObject();
+    return Math.round(image.cropX);
+  })).toBe(cropLeft);
+
+  // The crop is still reversible while the crop handles are active.
+  await dragLeftCrop(-cropLeft - 10);
+  await expect.poll(() => page.evaluate(() => Math.round(canvas.getActiveObject().cropX))).toBe(0);
+  await dragLeftCrop(cropLeft);
+
+  const movement = await page.evaluate(() => {
+    const image = canvas.getActiveObject();
+    const center = image.getCenterPoint();
+    return { center, canvasWidth: canvas.width, canvasHeight: canvas.height };
+  });
+  const movementBounds = await page.locator('.upper-canvas').boundingBox();
+  const movementScaleX = movementBounds.width / movement.canvasWidth;
+  const movementScaleY = movementBounds.height / movement.canvasHeight;
+  const startX = movementBounds.x + movement.center.x * movementScaleX;
+  const startY = movementBounds.y + movement.center.y * movementScaleY;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX + 20 * movementScaleX, startY + 10 * movementScaleY, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(() => page.evaluate(expected => {
+    const center = canvas.getActiveObject().getCenterPoint();
+    return center.x - expected.x > 15 && center.y - expected.y > 5;
+  }, movement.center)).toBe(true);
+
+  // Clicking empty canvas commits the crop and restores the regular resize handles.
+  const surface = page.locator('.upper-canvas');
+  const surfaceBounds = await surface.boundingBox();
+  await page.mouse.click(surfaceBounds.x + surfaceBounds.width - 4, surfaceBounds.y + surfaceBounds.height - 4);
+  await expect(page.locator('#meme-canvas-wrapper')).toHaveAttribute(
+    'aria-label', 'Meme canvas editor. Select an image to edit it.'
+  );
+  expect(await page.evaluate(() => Object.keys(canvas.getObjects()[0].controls))).toContain('mtr');
+  expect(await page.evaluate(() => Object.keys(canvas.getObjects()[0].controls))).toContain('cropMode');
+  await page.locator('#canvas-undo').click();
+  await expect.poll(() => page.evaluate(() => {
+    const image = canvas.getObjects().find(object => object.type === 'image');
+    return { cropX: image.cropX, cropY: image.cropY, width: image.width, height: image.height };
+  })).toEqual({ cropX: 0, cropY: 0, width: original.width, height: original.height });
+
+  await page.locator('#canvas-redo').click();
+  await expect.poll(() => page.evaluate(() => {
+    const image = canvas.getObjects().find(object => object.type === 'image');
+    return {
+      cropX: Math.round(image.cropX),
+      cropY: Math.round(image.cropY),
+      width: Math.round(image.width),
+      height: Math.round(image.height),
+    };
+  })).toEqual({
+    cropX: cropLeft,
+    cropY: 0,
+    width: original.width - cropLeft,
+    height: original.height,
+  });
+});
+
+test('the on-canvas crop trigger is only attached to image overlays', async ({ page }) => {
+  await openEditor(page);
+  await page.locator('#add-text').click();
+  await page.evaluate(() => canvas.setActiveObject(canvas.item(0)).renderAll());
+  expect(await page.evaluate(() => Object.keys(canvas.getActiveObject().controls))).not.toContain('cropMode');
+  await expect(page.locator('#meme-canvas-wrapper')).toHaveAttribute('aria-keyshortcuts', 'C Escape');
+});
+
+test('crop handle cursors rotate with the image like resize handle cursors', async ({ page }) => {
+  await openEditor(page);
+  await page.locator('#add-image').setInputFiles(blankImage);
+  const angles = [0, 30, 90, 135];
+  const controlNames = ['tl', 'mt', 'tr', 'ml', 'mr', 'bl', 'mb', 'br'];
+  const readCursors = () => page.evaluate(({ angles, controlNames }) => {
+    const image = canvas.getActiveObject();
+    return angles.map(angle => {
+      image.angle = angle;
+      return controlNames.map(name => {
+        const control = image.controls[name];
+        return control.cursorStyleHandler({}, control, image);
+      });
+    });
+  }, { angles, controlNames });
+
+  const resizeCursors = await readCursors();
+  await page.locator('#meme-canvas-wrapper').focus();
+  await page.keyboard.press('c');
+  expect(await readCursors()).toEqual(resizeCursors);
+});
+
+test('image editing controls keep constant display dimensions when the canvas resizes', async ({ page }) => {
+  await openEditor(page);
+  await page.locator('#add-image').setInputFiles(blankImage);
+
+  const displayMetrics = () => page.evaluate(() => {
+    const image = canvas.getActiveObject();
+    const displayScale = canvas.upperCanvasEl.getBoundingClientRect().width / canvas.width;
+    const cropButton = image.controls.cropMode;
+    const cropHandle = Object.values(image.controls).find(control => control.actionName === 'crop');
+    const rotation = image.controls.mtr;
+    return {
+      corner: image.cornerSize * displayScale,
+      touchCorner: image.touchCornerSize * displayScale,
+      border: image.borderScaleFactor * displayScale,
+      padding: image.padding * displayScale,
+      cropButton: cropButton.sizeX * displayScale,
+      cropTouch: cropButton.touchSizeX * displayScale,
+      cropOffsetX: cropButton.offsetX * displayScale,
+      cropOffsetY: cropButton.offsetY * displayScale,
+      cropHandle: cropHandle && cropHandle.sizeX * displayScale,
+      cropHandleTouch: cropHandle && cropHandle.touchSizeX * displayScale,
+      rotationOffset: rotation && rotation.offsetY * displayScale,
+    };
+  });
+  const roundedMetrics = async () => Object.fromEntries(
+    Object.entries(await displayMetrics())
+      .filter(([_key, value]) => value !== undefined)
+      .map(([key, value]) => [key, Math.round(value)])
+  );
+
+  expect(await roundedMetrics()).toEqual({
+    corner: 14,
+    touchCorner: 28,
+    border: 2,
+    padding: 4,
+    cropButton: 28,
+    cropTouch: 44,
+    cropOffsetX: 20,
+    cropOffsetY: -20,
+    rotationOffset: -40,
+  });
+
+  await page.locator('#meme-canvas-wrapper').focus();
+  await page.keyboard.press('c');
+  await page.setViewportSize({ width: 760, height: 900 });
+  await expect.poll(async () => (await roundedMetrics()).cropButton).toBe(28);
+  expect(await roundedMetrics()).toEqual({
+    corner: 14,
+    touchCorner: 28,
+    border: 2,
+    padding: 4,
+    cropButton: 28,
+    cropTouch: 44,
+    cropOffsetX: 20,
+    cropOffsetY: -20,
+    cropHandle: 28,
+    cropHandleTouch: 36,
+  });
+});
+
 test('export preserves the template resolution', async ({ page }) => {
   await openEditor(page);
   const pageCount = page.context().pages().length;

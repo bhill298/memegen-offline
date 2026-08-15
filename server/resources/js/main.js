@@ -39,12 +39,15 @@ function processMeme(memeInfo) {
         return;
     }
 
+    let updateCanvasControlMetrics = function () {};
+
     // Responsive canvas
     $(window).off('resize.memeEditor').on('resize.memeEditor', resizeCanvas);
     function resizeCanvas() {
         var width = $('.fabric-canvas-wrapper').width();
         $('.canvas-container').css('width', width);
         $('.canvas-container').css('height', width * sizePlan.workingHeight / sizePlan.workingWidth);
+        updateCanvasControlMetrics();
     }
 
     // brush tool state
@@ -120,6 +123,335 @@ function processMeme(memeInfo) {
     let restoringHistory = false;
     let stateLoadToken = 0;
     var hoverAnimationRequestId;
+    let cropSession;
+    let canvasDisplayScale = 1;
+
+    function controlUnits(displayPixels) {
+        return displayPixels / canvasDisplayScale;
+    }
+
+    function measureCanvasDisplayScale() {
+        const bounds = editorCanvas.upperCanvasEl.getBoundingClientRect();
+        return bounds.width > 0 ? bounds.width / editorCanvas.getWidth() : 1;
+    }
+
+    function updateObjectControlMetrics(object) {
+        Object.keys(object.controls).forEach(function (controlName) {
+            const control = object.controls[controlName];
+            if (control.actionName === 'cropMode') {
+                control.offsetX = controlUnits(20);
+                control.offsetY = controlUnits(-20);
+                control.sizeX = controlUnits(28);
+                control.sizeY = controlUnits(28);
+                control.touchSizeX = controlUnits(44);
+                control.touchSizeY = controlUnits(44);
+            }
+            else if (control.actionName === 'crop') {
+                control.sizeX = controlUnits(28);
+                control.sizeY = controlUnits(28);
+                control.touchSizeX = controlUnits(36);
+                control.touchSizeY = controlUnits(36);
+            }
+            else if (controlName === 'mtr') {
+                control.offsetY = controlUnits(-40);
+            }
+        });
+        object.setCoords();
+    }
+
+    updateCanvasControlMetrics = function () {
+        if (canvas !== editorCanvas || !editorCanvas.upperCanvasEl) {
+            return;
+        }
+        canvasDisplayScale = measureCanvasDisplayScale();
+        fabric.Object.prototype.set({
+            transparentCorners: false,
+            cornerColor: 'yellow',
+            borderColor: 'rgba(88,42,114)',
+            cornerSize: controlUnits(14),
+            touchCornerSize: controlUnits(28),
+            cornerStrokeColor: '#000000',
+            borderScaleFactor: controlUnits(2),
+            padding: controlUnits(4),
+        });
+        editorCanvas.getObjects().forEach(updateObjectControlMetrics);
+        editorCanvas.requestRenderAll();
+    };
+
+    function selectedImage() {
+        const activeObject = editorCanvas.getActiveObject();
+        return activeObject && activeObject.type === 'image' ? activeObject : undefined;
+    }
+
+    function imageSourceSize(image) {
+        const element = image.getElement();
+        return {
+            width: element.naturalWidth || element.videoWidth || element.width,
+            height: element.naturalHeight || element.videoHeight || element.height,
+        };
+    }
+
+    function updateCanvasAccessibility() {
+        let label = 'Meme canvas editor. Select an image to edit it.';
+        if (selectedImage()) {
+            label = cropSession
+                ? 'Meme canvas editor. Crop mode active. Drag the image or crop handles. ' +
+                    'Press C or Escape to apply the crop.'
+                : 'Meme canvas editor. Image selected. Press C to crop it.';
+        }
+        $('#meme-canvas-wrapper').attr('aria-label', label);
+    }
+
+    function cropSnapshot(image) {
+        return {
+            cropX: image.cropX || 0,
+            cropY: image.cropY || 0,
+            width: image.width,
+            height: image.height,
+            left: image.left,
+            top: image.top,
+            center: image.getCenterPoint(),
+        };
+    }
+
+    function finishCropping() {
+        if (!cropSession) {
+            return;
+        }
+        const session = cropSession;
+        cropSession = undefined;
+        session.image.controls = session.controls;
+        session.image.setCoords();
+        updateCanvasAccessibility();
+        editorCanvas.requestRenderAll();
+        recordHistoryState();
+    }
+
+    function applyCropEdges(values) {
+        if (!cropSession) {
+            return;
+        }
+        values.left = Math.min(values.left, cropSession.sourceWidth - 1);
+        values.right = Math.min(values.right, cropSession.sourceWidth - values.left - 1);
+        values.top = Math.min(values.top, cropSession.sourceHeight - 1);
+        values.bottom = Math.min(values.bottom, cropSession.sourceHeight - values.top - 1);
+
+        const image = cropSession.image;
+        const width = cropSession.sourceWidth - values.left - values.right;
+        const height = cropSession.sourceHeight - values.top - values.bottom;
+        const baselineSourceCenterX = cropSession.snapshot.cropX + cropSession.snapshot.width / 2;
+        const baselineSourceCenterY = cropSession.snapshot.cropY + cropSession.snapshot.height / 2;
+        let offsetX = (values.left + width / 2 - baselineSourceCenterX) * image.scaleX;
+        let offsetY = (values.top + height / 2 - baselineSourceCenterY) * image.scaleY;
+        if (image.flipX) offsetX *= -1;
+        if (image.flipY) offsetY *= -1;
+        const radians = fabric.util.degreesToRadians(image.angle || 0);
+        const center = new fabric.Point(
+            cropSession.snapshot.center.x + offsetX * Math.cos(radians) - offsetY * Math.sin(radians),
+            cropSession.snapshot.center.y + offsetX * Math.sin(radians) + offsetY * Math.cos(radians)
+        );
+        image.set({ cropX: values.left, cropY: values.top, width: width, height: height });
+        image.setPositionByOrigin(center, 'center', 'center');
+        image.setCoords();
+        cropSession.currentCenter = image.getCenterPoint();
+        editorCanvas.requestRenderAll();
+    }
+
+    function cropHandleMouseDown(horizontalEdge, verticalEdge, eventData, transform, x, y) {
+        if (!cropSession) {
+            return false;
+        }
+        const image = cropSession.image;
+        cropSession.drag = {
+            x: x,
+            y: y,
+            horizontalEdge: horizontalEdge,
+            verticalEdge: verticalEdge,
+            values: {
+                left: image.cropX || 0,
+                top: image.cropY || 0,
+                right: cropSession.sourceWidth - (image.cropX || 0) - image.width,
+                bottom: cropSession.sourceHeight - (image.cropY || 0) - image.height,
+            },
+        };
+        return true;
+    }
+
+    function cropHandleAction(eventData, transform, x, y) {
+        if (!cropSession || !cropSession.drag) {
+            return false;
+        }
+        const image = cropSession.image;
+        const drag = cropSession.drag;
+        const radians = fabric.util.degreesToRadians(-(image.angle || 0));
+        const canvasDx = x - drag.x;
+        const canvasDy = y - drag.y;
+        let sourceDx = (canvasDx * Math.cos(radians) - canvasDy * Math.sin(radians)) / image.scaleX;
+        let sourceDy = (canvasDx * Math.sin(radians) + canvasDy * Math.cos(radians)) / image.scaleY;
+        if (image.flipX) sourceDx *= -1;
+        if (image.flipY) sourceDy *= -1;
+        const values = Object.assign({}, drag.values);
+        if (drag.horizontalEdge === 'left') values.left += sourceDx;
+        if (drag.horizontalEdge === 'right') values.right -= sourceDx;
+        if (drag.verticalEdge === 'top') values.top += sourceDy;
+        if (drag.verticalEdge === 'bottom') values.bottom -= sourceDy;
+        values.left = Math.max(0, values.left);
+        values.right = Math.max(0, values.right);
+        values.top = Math.max(0, values.top);
+        values.bottom = Math.max(0, values.bottom);
+        applyCropEdges(values);
+        return true;
+    }
+
+    function renderCropHandle(ctx, left, top, styleOverride, image) {
+        const control = this;
+        const horizontalEdge = control.horizontalEdge;
+        const verticalEdge = control.verticalEdge;
+        const length = controlUnits(12);
+        ctx.save();
+        ctx.translate(left, top);
+        ctx.rotate(fabric.util.degreesToRadians(image.angle || 0));
+        ctx.lineCap = 'square';
+        [controlUnits(7), controlUnits(3)].forEach(function (lineWidth, index) {
+            ctx.beginPath();
+            ctx.lineWidth = lineWidth;
+            ctx.strokeStyle = index === 0 ? '#ffffff' : '#111111';
+            if (horizontalEdge && verticalEdge) {
+                const directionX = horizontalEdge === 'left' ? 1 : -1;
+                const directionY = verticalEdge === 'top' ? 1 : -1;
+                ctx.moveTo(0, directionY * length);
+                ctx.lineTo(0, 0);
+                ctx.lineTo(directionX * length, 0);
+            }
+            else if (horizontalEdge) {
+                ctx.moveTo(0, -length);
+                ctx.lineTo(0, length);
+            }
+            else {
+                ctx.moveTo(-length, 0);
+                ctx.lineTo(length, 0);
+            }
+            ctx.stroke();
+        });
+        ctx.restore();
+    }
+
+    function renderCropModeControl(ctx, left, top) {
+        ctx.save();
+        ctx.translate(left, top);
+        ctx.beginPath();
+        ctx.arc(0, 0, controlUnits(12), 0, Math.PI * 2);
+        ctx.fillStyle = 'yellow';
+        ctx.fill();
+        ctx.lineWidth = controlUnits(1.5);
+        ctx.strokeStyle = '#5b2a72';
+        ctx.stroke();
+        ctx.fillStyle = '#111111';
+        ctx.font = `900 ${controlUnits(14)}px "Font Awesome 5 Free"`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('\uf565', 0, controlUnits(1));
+        ctx.restore();
+    }
+
+    function createCropModeControl() {
+        return new fabric.Control({
+            x: 0,
+            y: -0.5,
+            offsetX: controlUnits(20),
+            offsetY: controlUnits(-20),
+            sizeX: controlUnits(28),
+            sizeY: controlUnits(28),
+            touchSizeX: controlUnits(44),
+            touchSizeY: controlUnits(44),
+            cursorStyle: 'pointer',
+            actionName: 'cropMode',
+            mouseUpHandler: function () {
+                beginCropping();
+                return true;
+            },
+            render: renderCropModeControl,
+        });
+    }
+
+    function attachCropModeControl(image) {
+        if (!image || image.type !== 'image' || image.__hasCropModeControl) {
+            return;
+        }
+        image.controls = Object.assign({}, image.controls, {
+            cropMode: createCropModeControl(),
+        });
+        image.__hasCropModeControl = true;
+        updateObjectControlMetrics(image);
+    }
+
+    function makeCropControl(x, y, horizontalEdge, verticalEdge) {
+        return new fabric.Control({
+            x: x,
+            y: y,
+            horizontalEdge: horizontalEdge,
+            verticalEdge: verticalEdge,
+            sizeX: controlUnits(28),
+            sizeY: controlUnits(28),
+            touchSizeX: controlUnits(36),
+            touchSizeY: controlUnits(36),
+            cursorStyleHandler: fabric.controlsUtils.scaleCursorStyleHandler,
+            actionName: 'crop',
+            mouseDownHandler: cropHandleMouseDown.bind(null, horizontalEdge, verticalEdge),
+            actionHandler: cropHandleAction,
+            render: renderCropHandle,
+        });
+    }
+
+    function createCropControls() {
+        return {
+            tl: makeCropControl(-0.5, -0.5, 'left', 'top'),
+            mt: makeCropControl(0, -0.5, undefined, 'top'),
+            tr: makeCropControl(0.5, -0.5, 'right', 'top'),
+            ml: makeCropControl(-0.5, 0, 'left', undefined),
+            mr: makeCropControl(0.5, 0, 'right', undefined),
+            bl: makeCropControl(-0.5, 0.5, 'left', 'bottom'),
+            mb: makeCropControl(0, 0.5, undefined, 'bottom'),
+            br: makeCropControl(0.5, 0.5, 'right', 'bottom'),
+            cropMode: createCropModeControl(),
+        };
+    }
+
+    function beginCropping() {
+        const image = selectedImage();
+        if (!image) {
+            return;
+        }
+        if (cropSession) {
+            finishCropping();
+            return;
+        }
+        attachCropModeControl(image);
+        flushScheduledHistory();
+        const sourceSize = imageSourceSize(image);
+        cropSession = {
+            image: image,
+            snapshot: cropSnapshot(image),
+            sourceWidth: sourceSize.width,
+            sourceHeight: sourceSize.height,
+            controls: image.controls,
+            currentCenter: image.getCenterPoint(),
+        };
+        image.controls = createCropControls();
+        image.setCoords();
+        updateCanvasAccessibility();
+        editorCanvas.requestRenderAll();
+    }
+
+    function trackCropMovement(event) {
+        if (!cropSession || event.target !== cropSession.image || !cropSession.currentCenter) {
+            return;
+        }
+        const center = cropSession.image.getCenterPoint();
+        cropSession.snapshot.center.x += center.x - cropSession.currentCenter.x;
+        cropSession.snapshot.center.y += center.y - cropSession.currentCenter.y;
+        cropSession.currentCenter = center;
+    }
 
     if (animationInfo && animationInfo.timeline.segments[0].editorState === null) {
         animationInfo.timeline.segments[0].editorState = [];
@@ -282,7 +614,7 @@ function processMeme(memeInfo) {
     }
 
     scheduleCanvasHistory = function () {
-        if (restoringHistory || canvas !== editorCanvas) {
+        if (restoringHistory || cropSession || canvas !== editorCanvas) {
             return;
         }
         if (historyTimeout !== undefined) {
@@ -358,6 +690,7 @@ function processMeme(memeInfo) {
             });
             objects.forEach(function (object, objectIndex) {
                 object.__historyImageId = hydratedObjects[objectIndex].__historyImageId;
+                attachCropModeControl(object);
                 editorCanvas.add(object);
             });
             editorCanvas.renderAll();
@@ -492,6 +825,7 @@ function processMeme(memeInfo) {
         'object:added': scheduleCanvasHistory,
         'object:removed': scheduleCanvasHistory,
         'object:modified': scheduleCanvasHistory,
+        'object:moving': trackCropMovement,
     });
     recordHistoryState();
 
@@ -520,6 +854,7 @@ function processMeme(memeInfo) {
         $animationSlider.off('input');
         $animationSplit.off('click');
         $animationOutputFormat.off('change').empty();
+        cropSession = undefined;
         $animationQualityControls.attr('hidden', true);
         $animationGifWarning.attr('hidden', true);
         $animationQuality.val('full');
@@ -642,6 +977,7 @@ function processMeme(memeInfo) {
         const shortcutKey = (e.key || '').toLowerCase();
         if (modifierKey && !(activeObjectForShortcut && activeObjectForShortcut.isEditing)) {
             if (shortcutKey === 'z') {
+                finishCropping();
                 if (e.shiftKey) {
                     redoCanvas();
                 }
@@ -652,7 +988,20 @@ function processMeme(memeInfo) {
                 return;
             }
             if (shortcutKey === 'y') {
+                finishCropping();
                 redoCanvas();
+                e.preventDefault();
+                return;
+            }
+        }
+        if (!modifierKey && !(activeObjectForShortcut && activeObjectForShortcut.isEditing)) {
+            if (shortcutKey === 'c' && selectedImage()) {
+                beginCropping();
+                e.preventDefault();
+                return;
+            }
+            if (shortcutKey === 'escape' && cropSession) {
+                finishCropping();
                 e.preventDefault();
                 return;
             }
@@ -692,6 +1041,7 @@ function processMeme(memeInfo) {
         if (e.keyCode == 46 ||
             e.key == 'Delete' ||
             e.code == 'Delete') {
+            finishCropping();
             flushScheduledHistory();
             deleteSelected();
         }
@@ -962,39 +1312,54 @@ function processMeme(memeInfo) {
     });
 
     $("#canvas-delete").off('click').on('click', function () {
+        finishCropping();
         flushScheduledHistory();
         deleteSelected(true);
     });
 
-    $('#canvas-undo').off('click').on('click', undoCanvas);
-    $('#canvas-redo').off('click').on('click', redoCanvas);
+    $('#canvas-undo').off('click').on('click', function () {
+        finishCropping();
+        undoCanvas();
+    });
+    $('#canvas-redo').off('click').on('click', function () {
+        finishCropping();
+        redoCanvas();
+    });
 
     $("#canvas-clear").off('click').on('click', function () {
+        finishCropping();
         flushScheduledHistory();
         canvas.getObjects().forEach(el => canvas.remove(el));
         canvas.discardActiveObject().renderAll();
     });
 
-    // Custom control
-    fabric.Object.prototype.set({
-        transparentCorners: false,
-        cornerColor: 'yellow',
-        borderColor: 'rgba(88,42,114)',
-        cornerSize: parseInt(canvas.width) * 0.03,
-        cornerStrokeColor: '#000000',
-        borderScaleFactor: 2,
-        padding: 4,
-    });
+    // Keep control dimensions constant in display pixels as the responsive canvas scales.
+    updateCanvasControlMetrics();
 
     // add event listener handlers to edit methods
     loadObjectHandlers();
 
     // Update edit methods values to the selected canvas text
+    function handleSelectedObject() {
+        if (cropSession && selectedImage() !== cropSession.image) {
+            finishCropping();
+        }
+        attachCropModeControl(selectedImage());
+        updateInputs();
+        updateCanvasAccessibility();
+        editorCanvas.requestRenderAll();
+    }
+
     canvas.on({
-        'selection:created': updateInputs,
-        'selection:updated': updateInputs,
-        'selection:cleared': enableTextMethods,
+        'selection:created': handleSelectedObject,
+        'selection:updated': handleSelectedObject,
+        'selection:cleared': function () {
+            finishCropping();
+            enableTextMethods();
+            updateCanvasAccessibility();
+        },
     });
+    updateCanvasAccessibility();
 
     function updateBrushCursor(o, ts) {
         hoverAnimationRequestId = undefined;
