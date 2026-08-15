@@ -849,6 +849,10 @@ test('an image overlay can be added, undone, and redone', async ({ page }) => {
   await openEditor(page);
   await page.locator('#add-image').setInputFiles(blankImage);
   await expect.poll(async () => (await canvasObjects(page)).filter(object => object.type === 'image').length).toBe(1);
+  expect(await page.evaluate(() => {
+    const center = canvas.getObjects().find(object => object.type === 'image').getCenterPoint();
+    return { x: center.x, y: center.y };
+  })).toEqual({ x: 225, y: 61.5 });
   await waitForHistory(page);
 
   await page.locator('#canvas-undo').click();

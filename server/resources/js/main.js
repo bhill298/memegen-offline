@@ -1291,6 +1291,12 @@ function processMeme(memeInfo) {
                     }
                 }
                 image.scaleToWidth(editorCanvas.width / 2);
+                image.setPositionByOrigin(
+                    new fabric.Point(editorCanvas.width / 2, editorCanvas.height / 2),
+                    'center',
+                    'center'
+                );
+                image.setCoords();
                 editorCanvas.add(image).setActiveObject(image);
                 $('#scale').val(image.scaleX);
                 finishImageLoad();
