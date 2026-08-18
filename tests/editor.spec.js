@@ -894,17 +894,34 @@ test('clicking an image overlay brings it to the front', async ({ page }) => {
   })).toBe(100);
 });
 
-test('large added images are reduced to interactive working dimensions', async ({ page }) => {
+test('added images within the interactive pixel budget retain their resolution', async ({ page }) => {
   await openEditor(page);
   await page.locator('#add-image').setInputFiles(largeOverlayImage);
   await expect.poll(() => page.evaluate(() => {
     const image = canvas.getObjects().find(object => object.type === 'image');
     const element = image && image.getElement();
     return element && { width: element.width, height: element.height };
-  })).toEqual({ width: 1652, height: 1388 });
-  await expect(page.locator('.alert-container')).toContainText(
-    'Large added image resized to 1652 x 1388.'
-  );
+  })).toEqual({ width: 2065, height: 1735 });
+  await expect(page.locator('.alert-container')).toBeHidden();
+});
+
+test('working image sizing is governed by pixel cost rather than a short side limit', async ({ page }) => {
+  await page.goto('/');
+  expect(await page.evaluate(() => ({
+    fourK: createImageSizePlan(4096, 2160),
+    overBudget: createImageSizePlan(6000, 4000),
+  }))).toMatchObject({
+    fourK: {
+      workingWidth: 4096,
+      workingHeight: 2160,
+    },
+    overBudget: {
+      outputWidth: 6000,
+      outputHeight: 4000,
+      workingWidth: 5016,
+      workingHeight: 3344,
+    },
+  });
 });
 
 test('an added image can be cropped and the crop can be undone and redone', async ({ page }) => {

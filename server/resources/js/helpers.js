@@ -80,8 +80,11 @@ const IMAGE_SIZE_LIMITS = Object.freeze({
     maxInputPixels: 100 * 1024 * 1024,
     maxOutputDimension: 8192,
     maxOutputPixels: 32 * 1024 * 1024,
-    maxWorkingDimension: 2048,
-    maxWorkingPixels: 4 * 1024 * 1024,
+    // Interactive rendering is primarily limited by total canvas pixels, not by
+    // the length of one side.  Keep well below the measured frame-rate cliff
+    // while allowing ordinary 4K and moderately large source images unchanged.
+    maxWorkingDimension: 8192,
+    maxWorkingPixels: 16 * 1024 * 1024,
 });
 
 function fitImageDimensions(width, height, maxDimension, maxPixels) {
